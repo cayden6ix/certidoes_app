@@ -1,0 +1,298 @@
+# Task Breakdown — Parte 3 (Fluxo de Certidões: telas, filtros, stats, detalhes e ações em massa)
+Sistema de controle de certidões notariais (NestJS + React/Tailwind + Supabase)
+
+---
+
+## Objetivo desta parte
+Entregar o **fluxo principal completo** para Cliente e Admin:
+- Cliente solicita certidão, acompanha status, edita campos permitidos e acessa detalhes
+- Admin visualiza todas as certidões, aplica filtros, vê métricas e **responde em massa** (status/custos/pagamento/pedido)
+- UI consistente, validações, estados e tratamento de erros
+
+---
+
+## 0) Alinhamentos e regras de negócio (base para implementar)
+### Regras sugeridas (para codificar sem ambiguidade)
+- Campos do **Cliente (editáveis pelo cliente)**:
+  - `certificate_type`, `record_number`, `parties_name`, `notes`, `priority`
+  - Editável **apenas enquanto status** for `pending` (ou `in_progress` se você quiser permitir; padrão recomendado: só `pending`)
+- Campos do **Admin (somente admin)**:
+  - `status`, `cost`, `order_number`, `additional_cost`, `payment_date`
+- Estados recomendados de `status`:
+  - `pending` → `in_progress` → `completed` (ou `canceled`)
+- Auditoria (recomendado):
+  - salvar histórico de alterações importantes (ver seção 5)
+
+### Critérios de aceite
+- Frontend e backend validam as regras (não só UI).
+- Cliente não consegue alterar campos admin, nem “furar” status via request.
+
+---
+
+## 1) Banco: suporte a métricas, histórico e batch update (incremental)
+### 1.1 Ajustes em `certificates` (se necessário)
+- Garantir índices:
+  - `user_id`
+  - `status`
+  - `created_at`
+  - `record_number` (para busca)
+  - `order_number` (para busca admin)
+- (Opcional) `updated_by` (uuid) e `updated_at` já existem
+
+### 1.2 (Recomendado) Tabela `certificate_events` (histórico/auditoria)
+Campos:
+- `id` (uuid, PK)
+- `certificate_id` (uuid, FK)
+- `actor_user_id` (uuid, FK → profiles.id)
+- `actor_role` (`client|admin`)
+- `event_type` (ex.: `created`, `updated`, `status_changed`, `batch_updated`)
+- `changes` (jsonb) — diff simples (antes/depois) dos campos alterados
+- `created_at`
+
+Políticas RLS:
+- Cliente: vê eventos apenas das suas certidões
+- Admin: vê tudo
+
+### Critérios de aceite
+- Índices criados e consultas de dashboard não degradam rápido.
+- Histórico registra alterações administrativas e do cliente (mínimo: status + custos + campos do cliente).
+
+---
+
+## 2) Backend — endpoints completos do fluxo Cliente
+### 2.1 Criar certidão (já existe, reforçar validação)
+- `POST /api/certificates`
+  - Permite apenas campos do cliente
+  - Define defaults: `status=pending`
+
+### 2.2 Listagem do cliente com filtros e paginação
+- `GET /api/certificates?search=&status=&priority=&from=&to=&page=&pageSize=`
+Regras:
+- Cliente só retorna suas certidões (por user_id + RLS + guard)
+- Busca (`search`) aplica em:
+  - `record_number`
+  - `parties_name`
+  - `certificate_type`
+  - `order_number` (se fizer sentido mostrar ao cliente)
+- Retornar:
+  - `items[]`
+  - `total`
+  - `page`, `pageSize`
+
+### 2.3 Detalhe da certidão
+- `GET /api/certificates/:id`
+  - Inclui dados principais
+  - (Opcional) inclui eventos/histórico: `GET /api/certificates/:id/events`
+
+### 2.4 Edição pelo cliente
+- `PATCH /api/certificates/:id`
+  - Permite somente campos do cliente
+  - Bloqueia se `status != pending` (recomendado)
+  - Cria evento `updated`
+
+### Critérios de aceite
+- Cliente cria/edita/lista/detalha com regras respeitadas.
+- Tentativas de alterar `status` ou custos retornam 403/400.
+
+---
+
+## 3) Backend — endpoints completos do fluxo Admin
+### 3.1 Listagem global com filtros avançados
+- `GET /api/admin/certificates?search=&status=&priority=&userId=&from=&to=&paymentFrom=&paymentTo=&page=&pageSize=`
+
+Filtros:
+- `search` (record_number, parties_name, order_number, certificate_type)
+- `status`, `priority`
+- `userId` (filtrar por solicitante)
+- `created_at` por período
+- `payment_date` por período (quando existir)
+
+### 3.2 Estatísticas para o dashboard (cards)
+- `GET /api/admin/certificates/stats?from=&to=`
+Retornar:
+- Total no período
+- Por status (pending/in_progress/completed/canceled)
+- Pendentes urgentes
+- Valor total previsto (soma `cost + additional_cost` onde status != canceled) (opcional)
+- Pagas no período (payment_date set) (opcional)
+
+### 3.3 Batch update (responder certidões em massa)
+- `PATCH /api/admin/certificates/batch`
+Payload:
+- `certificateIds: string[]`
+- `patch: { status?, cost?, order_number?, additional_cost?, payment_date? }`
+
+Regras:
+- Deve validar:
+  - `certificateIds` não vazio
+  - `patch` ter pelo menos um campo
+  - Tipos/formatos corretos
+- Registrar evento:
+  - Para cada certidão, evento `batch_updated` com changes
+- Performance:
+  - Usar update em lote (onde possível) + retorno resumido
+
+Resposta recomendada:
+- `updatedCount`
+- `failed: [{ id, reason }]` (se ocorrer)
+
+### Critérios de aceite
+- Admin consegue alterar em massa com 1 request.
+- Evento/histórico registra as alterações.
+- Erros em uma certidão não derrubam todo o lote (ideal).
+
+---
+
+## 4) Frontend — Cliente (Request + Dashboard + Detalhe)
+### 4.1 Tela de Solicitação (request_certificate.tsx)
+Componentes:
+- Select “Tipo de Certidão”
+- Input “n.º da Ficha”
+- Input “Nome das Partes”
+- Textarea “Observações”
+- Select “Prioridade”
+- Botão “Enviar solicitação”
+
+Validações:
+- Obrigatórios mínimos: `certificate_type`, `record_number`, `parties_name`
+- Mostrar erro inline
+- Loading state + toast de sucesso/erro
+
+Critérios de aceite:
+- Cria uma certidão e redireciona para dashboard ou detalhe.
+
+### 4.2 Dashboard do Cliente (dashboard.tsx)
+Funcionalidades:
+- Barra de busca/filtro (search + status + prioridade)
+- Cards de estatísticas (do cliente):
+  - total, pendentes, em andamento, concluídas (no período padrão: 30 dias ou “tudo”)
+- Lista/tabela de certidões:
+  - colunas: `tipo`, `ficha`, `partes`, `prioridade`, `status`, `criado em`, `ações`
+- Ações:
+  - “Editar” (somente se status permitir)
+  - “Ver detalhes” (vai para `certificate/:id`)
+
+Critérios de aceite:
+- Filtros funcionam e paginação mantém estado.
+- Ações respeitam permissões.
+
+### 4.3 Tela de Detalhe (certificate_<id>.tsx ou route `certificate/:id`)
+Conteúdo:
+- Resumo (tipo, ficha, partes, prioridade, status)
+- Observações
+- Campos administrativos (somente leitura para cliente): custo, nº pedido, data pagto (se existirem)
+- Linha do tempo / histórico (se implementado): eventos
+
+Critérios de aceite:
+- Carrega rápido, trata 404, trata permissão.
+
+### 4.4 Tela de Edição (cliente)
+- Modal ou página separada
+- Permitir editar somente campos cliente
+- Bloquear UI se status não permitir
+
+Critérios de aceite:
+- Atualiza e reflete no dashboard/detalhe.
+
+---
+
+## 5) Frontend — Admin (Dashboard global + detalhes + batch)
+### 5.1 Dashboard Admin (dashboard admin)
+Route: `/admin/dashboard`
+
+Elementos:
+- Filtros avançados:
+  - search, status, prioridade, período, (opcional user)
+- Cards de estatísticas (API admin stats)
+- Lista/tabela global:
+  - Seleção múltipla (checkbox por linha + “select all”)
+  - Colunas: solicitante, tipo, ficha, partes, prioridade, status, criado em, custo, nº pedido, data pagto
+- Ações por linha:
+  - “Ver detalhes”
+  - (Opcional) “Editar individual”
+
+Critérios de aceite:
+- Admin vê certidões de todos usuários.
+- Seleção múltipla funciona com paginação (definir regra: seleção só página atual ou cross-page).
+
+### 5.2 Modal/Painel de atualização em massa
+Com seleção de N certidões:
+- Campos editáveis em massa:
+  - Status
+  - Custo
+  - Nº do Pedido
+  - Custo adicional
+  - Data de Pag
+- Comportamento:
+  - Permitir preencher apenas alguns campos (patch parcial)
+  - Confirmar ação (“Você vai atualizar X certidões”)
+  - Mostrar resultado: updatedCount + falhas (se houver)
+  - Recarregar lista e stats
+
+Critérios de aceite:
+- 1 clique aplica batch update via endpoint.
+- UI mostra claramente o que foi alterado.
+
+### 5.3 Tela de detalhe admin
+- Mesmo layout base do cliente, porém editável:
+  - status, custo, pedido, adicional, data pag
+- Mostrar histórico
+
+Critérios de aceite:
+- Admin consegue ajuste fino por certidão sem depender do batch.
+
+---
+
+## 6) UX, estados, erros e consistência
+### Tarefas
+- Padrão de UI para:
+  - Loading (skeleton/spinner)
+  - Empty states (sem certidões)
+  - Erros (403/404/500) com mensagens úteis
+- Toasts padronizados
+- Debounce na busca (300–500ms)
+- Manter filtros em querystring (para compartilhar link e preservar refresh)
+
+### Critérios de aceite
+- Navegação previsível.
+- Sem “piscadas” ou reload total desnecessário.
+- Erros de permissão explicados e com CTA (voltar/login).
+
+---
+
+## 7) Testes e checklist de entrega (Parte 3)
+### Backend
+- Testes unitários (mínimo):
+  - validação de DTO do batch
+  - regras de permissão (client vs admin)
+- (Opcional) teste de integração: batch update retorna contagem correta
+
+### Frontend
+- Testar manualmente:
+  - cliente cria, edita (quando permitido), vê detalhes, filtra
+  - admin filtra global, seleciona múltiplas, aplica batch, vê stats
+- (Opcional) testes de componentes (React Testing Library)
+
+### Critérios de aceite
+- Fluxo completo Cliente e Admin funcionando.
+- Batch update estável.
+- Sem vazamento de dados entre usuários (RLS + guards confirmados).
+
+---
+
+## Entregáveis da Parte 3
+- Telas do Cliente: solicitar, dashboard, detalhe, edição (com regras)
+- Telas do Admin: dashboard global, stats, detalhe, atualização em massa
+- Endpoints completos + filtros + paginação + batch update
+- (Recomendado) histórico/auditoria com `certificate_events`
+
+---
+
+## Próxima parte (Parte 4 — Qualidade, notificações e “produção”)
+Sugestões para evolução:
+- Notificações (email/WhatsApp/webhook) quando status mudar
+- Exportação CSV/Excel para admin
+- Upload de arquivos/retornos da certidão (anexos)
+- Observações internas do admin
+- CI/CD + deploy (backend + frontend) e políticas de segurança reforçadas
+- Métricas de performance e logs centralizados

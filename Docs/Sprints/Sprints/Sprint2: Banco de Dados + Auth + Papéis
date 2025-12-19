@@ -1,0 +1,220 @@
+# Task Breakdown — Parte 2 (Banco de Dados + Auth + Papéis)
+Sistema de controle de certidões notariais (NestJS + React/Tailwind + Supabase)
+
+---
+
+## Objetivo desta parte
+Implementar a **base funcional de dados e autenticação**, garantindo:
+- Modelagem correta do banco no Supabase
+- Separação clara entre **Cliente solicitante** e **Administrador**
+- Segurança via **Row Level Security (RLS)**
+- Autenticação integrada entre **Supabase Auth**, **NestJS** e **React**
+- Primeiros fluxos protegidos funcionando ponta a ponta
+
+---
+
+## 1) Modelagem do banco de dados (Supabase)
+### Tarefas
+Criar as tabelas principais no schema `public`:
+
+### 1.1 Tabela `profiles`
+Tabela espelho do `auth.users`.
+
+Campos:
+- `id` (uuid, PK, FK → auth.users.id)
+- `full_name` (text)
+- `email` (text)
+- `role` (enum: `client`, `admin`)
+- `created_at` (timestamp)
+- `updated_at` (timestamp)
+
+### 1.2 Tabela `certificates`
+Representa a certidão solicitada.
+
+Campos:
+- `id` (uuid, PK)
+- `user_id` (uuid, FK → profiles.id)
+- `certificate_type` (text)
+- `record_number` (text) — nº da ficha
+- `parties_name` (text)
+- `notes` (text)
+- `priority` (enum: `normal`, `urgent`)
+- `status` (enum: `pending`, `in_progress`, `completed`, `canceled`)
+- `cost` (numeric)
+- `additional_cost` (numeric)
+- `order_number` (text)
+- `payment_date` (date)
+- `created_at` (timestamp)
+- `updated_at` (timestamp)
+
+### 1.3 Enums
+Criar enums no Supabase:
+- `user_role`
+- `certificate_priority`
+- `certificate_status`
+
+### Critérios de aceite
+- Tabelas criadas via migration versionada.
+- Relacionamentos funcionando corretamente.
+- Constraints e defaults aplicados.
+
+---
+
+## 2) Row Level Security (RLS)
+### Tarefas
+Ativar RLS em todas as tabelas sensíveis.
+
+### 2.1 Políticas para `profiles`
+- Usuário pode **ver e editar apenas seu próprio perfil**
+- Admin pode **ver todos os perfis**
+
+### 2.2 Políticas para `certificates`
+- Cliente:
+  - Pode **criar certidões**
+  - Pode **ver apenas suas próprias certidões**
+  - Não pode editar campos administrativos
+- Administrador:
+  - Pode **ver todas as certidões**
+  - Pode **editar todos os campos**
+  - Pode responder em massa
+
+### Critérios de aceite
+- Usuário comum não acessa dados de outros usuários.
+- Admin tem acesso total via RLS.
+- Tentativas indevidas retornam erro de permissão.
+
+---
+
+## 3) Supabase Auth — configuração e fluxo
+### Tarefas
+- Configurar Supabase Auth:
+  - Email + senha
+  - Confirmação por email (opcional)
+- Criar trigger para:
+  - Criar registro automático em `profiles` após `auth.users` insert
+- Definir role default como `client`
+- Criar usuário admin manualmente (script ou painel Supabase)
+
+### Critérios de aceite
+- Usuário criado automaticamente gera profile.
+- Role default aplicada corretamente.
+- Admin reconhecido via role.
+
+---
+
+## 4) Backend (NestJS) — integração com Supabase Auth
+### Tarefas
+- Criar `SupabaseModule`:
+  - Cliente com `SERVICE_ROLE_KEY`
+- Criar `AuthModule` funcional:
+  - Guard de autenticação (`JwtGuard` Supabase)
+  - Decorator `@CurrentUser()`
+- Validar JWT do Supabase em todas as rotas protegidas
+- Criar `RolesGuard`:
+  - `@Roles('admin')`
+  - `@Roles('client')`
+
+### Critérios de aceite
+- Backend reconhece usuário autenticado via token Supabase.
+- Rotas protegidas bloqueiam acesso não autorizado.
+- Roles funcionam corretamente.
+
+---
+
+## 5) Backend — primeiros endpoints protegidos
+### Tarefas
+Criar módulo `CertificatesModule`.
+
+Endpoints iniciais:
+- `POST /api/certificates`
+  - Cliente cria solicitação
+- `GET /api/certificates`
+  - Cliente: lista apenas suas certidões
+  - Admin: lista todas
+- `GET /api/certificates/:id`
+  - Cliente: apenas se for dono
+  - Admin: acesso total
+
+Validações:
+- DTOs com `class-validator`
+- Campos administrativos ignorados na criação pelo cliente
+
+### Critérios de aceite
+- Cliente não consegue enviar campos administrativos.
+- Admin consegue ver tudo.
+- RLS + Guards funcionando juntos.
+
+---
+
+## 6) Frontend — Auth e proteção de rotas
+### Tarefas
+- Implementar login com Supabase Auth
+- Criar `AuthContext`:
+  - `user`
+  - `session`
+  - `role`
+- Proteger rotas:
+  - Cliente: `/request-certificate`, `/dashboard`
+  - Admin: `/admin/dashboard`
+- Redirecionamento automático:
+  - Admin → dashboard admin
+  - Cliente → dashboard cliente
+
+### Critérios de aceite
+- Usuário não autenticado não acessa rotas protegidas.
+- Admin não acessa telas de cliente e vice-versa.
+- Sessão persistida após reload.
+
+---
+
+## 7) Frontend — integração inicial com backend
+### Tarefas
+- Criar client HTTP (fetch/axios) com:
+  - Interceptor de token Supabase
+- Implementar:
+  - Criar certidão (POST)
+  - Listar certidões (GET)
+- Mostrar apenas dados permitidos por role
+
+### Critérios de aceite
+- Certidões criadas corretamente pelo cliente.
+- Listagem respeita permissões.
+- Erros de permissão tratados no frontend.
+
+---
+
+## 8) Prova de fluxo completo (E2E manual)
+### Tarefas
+- Criar usuário cliente
+- Criar usuário admin
+- Cliente:
+  - Login
+  - Criar certidão
+  - Ver apenas sua certidão
+- Admin:
+  - Login
+  - Ver todas as certidões
+
+### Critérios de aceite
+- Fluxo completo funciona sem falhas.
+- Nenhum vazamento de dados entre usuários.
+- Logs claros no backend.
+
+---
+
+## Entregáveis da Parte 2
+- Banco modelado com RLS ativo
+- Auth Supabase funcionando
+- Backend integrado com JWT e roles
+- Endpoints protegidos
+- Frontend com auth e rotas protegidas
+- Fluxo cliente x admin validado
+
+---
+
+## Próxima parte (Parte 3 — Fluxo de Certidões)
+- Tela de solicitação completa
+- Dashboard com filtros e estatísticas
+- Tela de detalhes da certidão
+- Ações administrativas em massa
+- Estados e status avançados

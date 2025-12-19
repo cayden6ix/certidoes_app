@@ -1,0 +1,188 @@
+# Task Breakdown — Parte 1 (Setup/Infra)
+Sistema de controle de certidões notariais (NestJS + React/Tailwind + Supabase) — Ambiente dockerizado (DEV)
+
+## Objetivo desta parte
+Entregar a base do projeto pronta para desenvolvimento:
+- Repositório estruturado
+- Frontend e backend inicializados
+- Docker Compose funcionando com hot reload
+- Supabase configurado e acessível
+- Prova de vida (healthcheck + chamada do frontend)
+
+---
+
+## 1) Repositório e estrutura base
+### Tarefas
+- Criar repositório (monorepo) e estrutura inicial:
+certidoes/
+apps/
+backend/ (NestJS)
+frontend/ (React+Vite+Tailwind)
+packages/
+shared/ (tipos DTOs, validações, helpers)
+infra/
+docker/
+nginx/ (opcional)
+docker-compose.yml
+.env.example
+README.md
+- Definir convenções de pastas e nomes de apps.
+
+### Critérios de aceite
+- Projeto sobe via Docker (frontend + backend).
+- README com instruções para rodar localmente.
+
+---
+
+## 2) Padronização de ferramentas (qualidade e DX)
+### Tarefas
+- Fixar versão do Node (ex.: `.nvmrc` ou `volta/asdf`).
+- Configurar:
+- ESLint + Prettier (frontend e backend)
+- EditorConfig
+- Husky + lint-staged (pré-commit)
+- Conventional commits (opcional)
+
+### Critérios de aceite
+- `npm run lint` e `npm run format` funcionam nos dois apps.
+- Hook de pre-commit bloqueia commit com lint quebrado.
+
+---
+
+## 3) Backend (NestJS) — bootstrap inicial
+### Tarefas
+- Criar NestJS em `apps/backend`.
+- Instalar dependências mínimas:
+- `@nestjs/config` (env)
+- `class-validator` + `class-transformer`
+- Logger (`pino` ou `winston`)
+- (Opcional) `zod` para validações compartilhadas
+- Criar módulos base:
+- `HealthModule` (GET `/api/health`)
+- `AuthModule` (placeholder; pensando Supabase Auth)
+- Configurar prefixo global `/api`:
+- `app.setGlobalPrefix('api')`
+
+### Critérios de aceite
+- Container do backend sobe e responde `GET /api/health` com status 200.
+
+---
+
+## 4) Frontend (React + Vite + Tailwind) — bootstrap inicial
+### Tarefas
+- Criar React com Vite em `apps/frontend`.
+- Instalar e configurar Tailwind.
+- Instalar:
+- `react-router-dom`
+- `@supabase/supabase-js`
+- (Opcional) UI kit: shadcn/ui ou headless + tailwind
+- Criar páginas placeholders:
+- `/login`
+- `/request-certificate` (request_certificate.tsx)
+- `/dashboard` (dashboard.tsx)
+- Criar layout base (Navbar/Sidebar simples).
+
+### Critérios de aceite
+- Frontend sobe via Docker e abre em `http://localhost:<porta>`.
+- Rotas acessíveis (mesmo com conteúdo placeholder).
+
+---
+
+## 5) Supabase — criação do projeto, schema inicial e acesso
+### Tarefas
+- Criar projeto no Supabase (cloud) **ou** preparar Supabase local via CLI.
+- Definir variáveis:
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` (somente backend)
+- Definir organização de schema:
+- `public` para tabelas principais
+- `auth` (padrão Supabase)
+- Preparar migrations (recomendado):
+- Se usar Supabase CLI: `supabase init` + `supabase db push`
+- Versionar migrations no repo
+
+### Critérios de aceite
+- Backend consegue conectar e fazer uma query simples (prova de acesso).
+- Variáveis separadas por ambiente (dev/prod) via `.env`.
+
+> Nota: mesmo usando Supabase cloud, o ideal é manter migrations versionadas via Supabase CLI para rastreabilidade e deploy consistente.
+
+---
+
+## 6) Dockerização — dev environment com hot reload
+### Tarefas
+- Criar `Dockerfile` do backend (DEV):
+- Node + deps
+- volume para código
+- `npm run start:dev`
+- Criar `Dockerfile` do frontend (DEV):
+- Node + deps
+- volume para código
+- `npm run dev -- --host 0.0.0.0`
+- Criar `docker-compose.yml` com:
+- `backend`
+- `frontend`
+- (Opcional) stack supabase local
+- Padronizar portas:
+- Frontend: `5173`
+- Backend: `3000`
+- Configurar comunicação:
+- Em dev: frontend chama `http://localhost:3000/api`
+- (Recomendado) Proxy do Vite para `/api` → `backend:3000`
+
+### Critérios de aceite
+- `docker compose up` sobe frontend + backend.
+- Alteração no código reflete no container (hot reload).
+- Frontend consegue chamar `GET /api/health`.
+
+---
+
+## 7) Configuração de ambientes e segurança de secrets
+### Tarefas
+- Criar:
+- `.env.example` (na raiz)
+- `.env` local (não versionar)
+- Separar env do backend e frontend:
+- Frontend só pode ter `VITE_*`
+- Backend guarda `SUPABASE_SERVICE_ROLE_KEY`
+- Padronizar nomes:
+- `BACKEND_PORT=3000`
+- `FRONTEND_PORT=5173`
+- `SUPABASE_URL=...`
+- `SUPABASE_ANON_KEY=...`
+- `SUPABASE_SERVICE_ROLE_KEY=...`
+- `APP_ENV=development`
+
+### Critérios de aceite
+- Nenhum secret comitado.
+- Frontend não expõe service role (somente backend).
+
+---
+
+## 8) Prova de vida (integração mínima)
+### Tarefas
+- Backend: `GET /api/health` retorna:
+- `{ "status": "ok", "env": "development" }`
+- Frontend: Dashboard exibe card “API status” consumindo `/api/health`.
+- Backend com log estruturado (startup + request).
+
+### Critérios de aceite
+- Após `docker compose up`, dashboard mostra “API ok”.
+
+---
+
+## Entregáveis da Parte 1
+- Repositório estruturado (monorepo)
+- Frontend e backend inicializados
+- Docker Compose com hot reload
+- Supabase configurado (cloud ou local) + variáveis
+- Endpoint health + consumo no frontend
+- Padrão de env e segurança mínima
+
+---
+
+## Próxima parte (Parte 2 — Banco e Auth)
+- Modelagem inicial no Supabase (tabelas: `certificates`, `certificate_requests`, `profiles`/`roles`)
+- RLS + papéis (cliente x admin)
+- Auth (Supabase Auth) + guards no NestJS + rotas protegidas no React
