@@ -1,16 +1,52 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { loginUser } from '../lib/api';
 
 /**
- * Página de Login (placeholder)
- * Será implementada na Sprint 2 com Supabase Auth
+ * Página de Login
+ * Implementa autenticação com backend via Supabase Auth
  */
 export function LoginPage(): JSX.Element {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent): void => {
+  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
-    // TODO: Implementar autenticação com Supabase na Sprint 2
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const response = await loginUser(email, password);
+
+      if (response.error) {
+        setError(response.error);
+        return;
+      }
+
+      if (!response.data) {
+        setError('Erro ao fazer login');
+        return;
+      }
+
+      // Armazena token no localStorage
+      localStorage.setItem('authToken', response.data.accessToken);
+      localStorage.setItem('user', JSON.stringify(response.data.user));
+
+      // Redireciona baseado no role
+      if (response.data.user.role === 'admin') {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao fazer login';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -24,6 +60,13 @@ export function LoginPage(): JSX.Element {
             Sistema de Controle de Certidões Notariais
           </p>
         </div>
+
+        {error && (
+          <div className="rounded-md bg-red-50 p-4">
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        )}
+
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4 rounded-md shadow-sm">
             <div>
@@ -38,7 +81,8 @@ export function LoginPage(): JSX.Element {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
+                disabled={isLoading}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm disabled:bg-gray-100 disabled:text-gray-500"
                 placeholder="seu@email.com"
               />
             </div>
@@ -54,7 +98,8 @@ export function LoginPage(): JSX.Element {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
+                disabled={isLoading}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm disabled:bg-gray-100 disabled:text-gray-500"
                 placeholder="••••••••"
               />
             </div>
@@ -63,15 +108,19 @@ export function LoginPage(): JSX.Element {
           <div>
             <button
               type="submit"
-              className="group relative flex w-full justify-center rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white hover:bg-primary-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+              disabled={isLoading}
+              className="group relative flex w-full justify-center rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white hover:bg-primary-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:bg-primary-400 disabled:cursor-not-allowed"
             >
-              Entrar
+              {isLoading ? 'Entrando...' : 'Entrar'}
             </button>
           </div>
         </form>
-        <p className="mt-4 text-center text-xs text-gray-500">
-          Autenticação será implementada na Sprint 2
-        </p>
+
+        <div className="mt-4 text-center text-xs text-gray-500">
+          <p>Dados de teste:</p>
+          <p>Email: client@example.com</p>
+          <p>Admin: admin@example.com</p>
+        </div>
       </div>
     </div>
   );
