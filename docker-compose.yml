@@ -1,0 +1,57 @@
+# Docker Compose para ambiente de desenvolvimento
+# Sistema de Controle de Certidões Notariais
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: certidoes-backend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - BACKEND_PORT=3000
+      - FRONTEND_URL=http://localhost:5173
+      - SUPABASE_URL=https://ihlwljaelpymqbdoevxo.supabase.co
+      - SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlobHdsamFlbHB5bXFiZG9ldnhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNzU2NjksImV4cCI6MjA4MTc1MTY2OX0.AydPOalaxrZ1RD95CsMx8h1lU4p4prjEO5xztBtdiRc
+      - SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlobHdsamFlbHB5bXFiZG9ldnhvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NjE3NTY2OSwiZXhwIjoyMDgxNzUxNjY5fQ.UhaTASPmbE2ErW9jLPyfq2JDRECJsPvTcyC3ctUOeos
+      - LOG_LEVEL=info
+    volumes:
+      # Hot reload: monta código fonte como volume
+      - ./apps/backend/src:/app/apps/backend/src:ro
+      - ./packages/shared/src:/app/packages/shared/src:ro
+    networks:
+      - certidoes-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+    container_name: certidoes-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_SUPABASE_URL=https://ihlwljaelpymqbdoevxo.supabase.co
+      - VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlobHdsamFlbHB5bXFiZG9ldnhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNzU2NjksImV4cCI6MjA4MTc1MTY2OX0.AydPOalaxrZ1RD95CsMx8h1lU4p4prjEO5xztBtdiRc
+    volumes:
+      # Hot reload: monta código fonte como volume
+      - ./apps/frontend/src:/app/apps/frontend/src:ro
+      - ./apps/frontend/index.html:/app/apps/frontend/index.html:ro
+      - ./packages/shared/src:/app/packages/shared/src:ro
+    networks:
+      - certidoes-network
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+networks:
+  certidoes-network:
+    driver: bridge
