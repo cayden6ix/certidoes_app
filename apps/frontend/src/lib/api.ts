@@ -72,3 +72,63 @@ export interface HealthResponse {
 export async function checkApiHealth(): Promise<ApiResponse<HealthResponse>> {
   return apiClient<HealthResponse>('/health');
 }
+
+/**
+ * Tipos de autenticação
+ */
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  fullName: string;
+  role: 'client' | 'admin';
+  createdAt: string;
+}
+
+export interface AuthResponse {
+  user: AuthUser;
+  accessToken: string;
+  refreshToken?: string;
+}
+
+export interface CurrentUserResponse {
+  id: string;
+  email: string;
+  role: 'client' | 'admin';
+}
+
+/**
+ * Faz login com email e senha
+ */
+export async function loginUser(
+  email: string,
+  password: string,
+): Promise<ApiResponse<AuthResponse>> {
+  return apiClient<AuthResponse>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+/**
+ * Faz logout do usuário
+ */
+export async function logoutUser(token: string): Promise<ApiResponse<{ message: string }>> {
+  return apiClient<{ message: string }>('/auth/logout', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+/**
+ * Obtém dados do usuário autenticado
+ */
+export async function getCurrentUser(token: string): Promise<ApiResponse<CurrentUserResponse>> {
+  return apiClient<CurrentUserResponse>('/auth/me', {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
