@@ -1,13 +1,12 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { loginUser } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 
 /**
  * Página de Login
  * Implementa autenticação com backend via Supabase Auth
  */
 export function LoginPage(): JSX.Element {
-  const navigate = useNavigate();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -19,28 +18,12 @@ export function LoginPage(): JSX.Element {
     setIsLoading(true);
 
     try {
-      const response = await loginUser(email, password);
+      const result = await login(email, password);
 
-      if (response.error) {
-        setError(response.error);
-        return;
+      if (!result.success) {
+        setError(result.error ?? 'Erro ao fazer login');
       }
-
-      if (!response.data) {
-        setError('Erro ao fazer login');
-        return;
-      }
-
-      // Armazena token no localStorage
-      localStorage.setItem('authToken', response.data.accessToken);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-
-      // Redireciona baseado no role
-      if (response.data.user.role === 'admin') {
-        navigate('/admin/dashboard');
-      } else {
-        navigate('/dashboard');
-      }
+      // Se login bem-sucedido, o AuthContext redireciona automaticamente
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao fazer login';
       setError(errorMessage);

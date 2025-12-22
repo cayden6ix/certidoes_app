@@ -102,6 +102,7 @@ export class AuthUserEntity {
 
   /**
    * Converte a entidade em objeto plano (DTO)
+   * Nota: Não inclui tokens - esses devem ser retornados separadamente
    */
   toDTO() {
     return {
@@ -110,8 +111,6 @@ export class AuthUserEntity {
       fullName: this.fullName,
       role: this.role.getValue(),
       createdAt: this.createdAt,
-      accessToken: this.accessToken,
-      refreshToken: this.refreshToken,
     };
   }
 }

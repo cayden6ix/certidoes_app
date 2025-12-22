@@ -52,20 +52,19 @@ export class LoginUseCase {
       // Autenticação bem-sucedida
       const authUser = authResult.data;
 
-      // Aqui viriam dados do accessToken e refreshToken vindos do repositório
-      // Por enquanto, os detalhes de token estão na responsabilidade do repositório
-      // Este use case apenas orquestra
-
       this.logger.info('Login bem-sucedido', {
         userId: authUser.id,
         email: authUser.email,
         role: authUser.role.getValue(),
       });
 
-      // Retorna sucesso com dados do usuário
-      // O repositório deve ter retornado o token também
+      // Retorna sucesso com dados do usuário e tokens
       return success(
-        new AuthResponseDto(authUser, '', undefined), // Token virá do repositório
+        new AuthResponseDto(
+          authUser,
+          authUser.accessToken,
+          authUser.refreshToken,
+        ),
       );
     } catch (error) {
       const errorMessage =

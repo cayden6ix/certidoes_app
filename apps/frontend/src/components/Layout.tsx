@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 interface LayoutProps {
   children: ReactNode;
@@ -7,17 +8,27 @@ interface LayoutProps {
 
 /**
  * Layout principal da aplicação
- * Navbar/Sidebar simples conforme Sprint 1
+ * Navbar com informações do usuário e logout
  */
 export function Layout({ children }: LayoutProps): JSX.Element {
   const location = useLocation();
+  const { user, logout, isAuthenticated } = useAuth();
 
   const navItems = [
     { path: '/dashboard', label: 'Dashboard' },
     { path: '/request-certificate', label: 'Solicitar Certidão' },
   ];
 
+  // Adiciona itens de admin se o usuário for admin
+  if (user?.role === 'admin') {
+    navItems.unshift({ path: '/admin/dashboard', label: 'Admin' });
+  }
+
   const isActive = (path: string): boolean => location.pathname === path;
+
+  const handleLogout = async (): Promise<void> => {
+    await logout();
+  };
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -47,13 +58,40 @@ export function Layout({ children }: LayoutProps): JSX.Element {
                 ))}
               </div>
             </div>
-            <div className="flex items-center">
-              <Link
-                to="/login"
-                className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-              >
-                Entrar
-              </Link>
+
+            {/* Área do usuário */}
+            <div className="flex items-center space-x-4">
+              {isAuthenticated && user ? (
+                <>
+                  {/* Informações do usuário */}
+                  <div className="hidden sm:flex sm:flex-col sm:items-end">
+                    <span className="text-sm font-medium text-gray-900">{user.fullName}</span>
+                    <span className="text-xs text-gray-500">
+                      {user.role === 'admin' ? 'Administrador' : 'Cliente'}
+                    </span>
+                  </div>
+
+                  {/* Avatar com inicial */}
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-600 text-sm font-medium text-white">
+                    {user.fullName.charAt(0).toUpperCase()}
+                  </div>
+
+                  {/* Botão de logout */}
+                  <button
+                    onClick={handleLogout}
+                    className="rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 hover:text-gray-900"
+                  >
+                    Sair
+                  </button>
+                </>
+              ) : (
+                <Link
+                  to="/login"
+                  className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+                >
+                  Entrar
+                </Link>
+              )}
             </div>
           </div>
         </div>

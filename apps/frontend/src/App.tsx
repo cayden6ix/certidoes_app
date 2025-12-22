@@ -1,27 +1,62 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 
+import { AuthProvider } from './contexts/AuthContext';
+import { ProtectedRoute, PublicOnlyRoute } from './components/ProtectedRoute';
 import { LoginPage, DashboardPage, RequestCertificatePage } from './pages';
 
 /**
  * Componente principal da aplicação
- * Define as rotas conforme Sprint 1
+ * Define as rotas com autenticação e proteção
  */
 function App(): JSX.Element {
   return (
-    <Routes>
-      {/* Rotas públicas */}
-      <Route path="/login" element={<LoginPage />} />
+    <AuthProvider>
+      <Routes>
+        {/* Rotas públicas - só acessíveis se NÃO autenticado */}
+        <Route
+          path="/login"
+          element={
+            <PublicOnlyRoute>
+              <LoginPage />
+            </PublicOnlyRoute>
+          }
+        />
 
-      {/* Rotas do cliente (serão protegidas na Sprint 2) */}
-      <Route path="/dashboard" element={<DashboardPage />} />
-      <Route path="/request-certificate" element={<RequestCertificatePage />} />
+        {/* Rotas protegidas do cliente */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/request-certificate"
+          element={
+            <ProtectedRoute>
+              <RequestCertificatePage />
+            </ProtectedRoute>
+          }
+        />
 
-      {/* Redirect da raiz para dashboard */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        {/* Rotas protegidas do admin */}
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
 
-      {/* 404 - Redireciona para dashboard */}
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
-    </Routes>
+        {/* Redirect da raiz para login */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
+
+        {/* 404 - Redireciona para login */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </AuthProvider>
   );
 }
 
