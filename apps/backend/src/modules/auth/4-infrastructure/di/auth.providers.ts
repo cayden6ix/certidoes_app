@@ -1,6 +1,9 @@
 import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { PinoLoggerService } from '../../../../shared/4-infrastructure/logger/pino-logger.service';
+import {
+  type LoggerContract,
+  LOGGER_CONTRACT,
+} from '../../../../shared/1-domain/contracts/logger.contract';
 import {
   AuthenticateUserUseCase,
   LogoutUserUseCase,
@@ -35,7 +38,7 @@ export const createSupabaseClient = (configService: ConfigService): SupabaseClie
 export const createAuthenticateUserUseCase = (
   authService: SupabaseAuthService,
   userRepository: AuthUserSupabaseRepository,
-  logger: PinoLoggerService,
+  logger: LoggerContract,
 ): AuthenticateUserUseCase => {
   return new AuthenticateUserUseCase(authService, userRepository, logger);
 };
@@ -45,7 +48,7 @@ export const createAuthenticateUserUseCase = (
  */
 export const createRefreshTokenUseCase = (
   authService: SupabaseAuthService,
-  logger: PinoLoggerService,
+  logger: LoggerContract,
 ): RefreshTokenUseCase => {
   return new RefreshTokenUseCase(authService, logger);
 };
@@ -55,7 +58,7 @@ export const createRefreshTokenUseCase = (
  */
 export const createLogoutUserUseCase = (
   authService: SupabaseAuthService,
-  logger: PinoLoggerService,
+  logger: LoggerContract,
 ): LogoutUserUseCase => {
   return new LogoutUserUseCase(authService, logger);
 };
@@ -74,7 +77,7 @@ export const authProviders = [
   // Logger
   {
     provide: AUTH_TOKENS.LOGGER,
-    useExisting: PinoLoggerService,
+    useExisting: LOGGER_CONTRACT,
   },
 
   // Services
