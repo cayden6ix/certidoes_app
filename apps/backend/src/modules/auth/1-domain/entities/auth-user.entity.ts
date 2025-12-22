@@ -31,6 +31,16 @@ export class AuthUserEntity {
   readonly createdAt: Date;
 
   /**
+   * Token de acesso JWT do Supabase
+   */
+  readonly accessToken: string;
+
+  /**
+   * Token de refresh do Supabase (opcional)
+   */
+  readonly refreshToken?: string;
+
+  /**
    * Construtor privado para garantir criação via factory method
    */
   private constructor(
@@ -39,12 +49,16 @@ export class AuthUserEntity {
     fullName: string,
     role: UserRoleValueObject,
     createdAt: Date,
+    accessToken: string,
+    refreshToken?: string,
   ) {
     this.id = id;
     this.email = email;
     this.fullName = fullName;
     this.role = role;
     this.createdAt = createdAt;
+    this.accessToken = accessToken;
+    this.refreshToken = refreshToken;
   }
 
   /**
@@ -58,6 +72,8 @@ export class AuthUserEntity {
     fullName: string;
     role: UserRoleValueObject;
     createdAt: Date;
+    accessToken: string;
+    refreshToken?: string;
   }): AuthUserEntity {
     return new AuthUserEntity(
       data.id,
@@ -65,6 +81,8 @@ export class AuthUserEntity {
       data.fullName,
       data.role,
       data.createdAt,
+      data.accessToken,
+      data.refreshToken,
     );
   }
 
@@ -92,6 +110,8 @@ export class AuthUserEntity {
       fullName: this.fullName,
       role: this.role.getValue(),
       createdAt: this.createdAt,
+      accessToken: this.accessToken,
+      refreshToken: this.refreshToken,
     };
   }
 }

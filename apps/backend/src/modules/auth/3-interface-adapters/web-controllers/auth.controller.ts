@@ -55,14 +55,19 @@ export class AuthController {
     const result = await this.loginUseCase.execute(request);
 
     // Converte Result em resposta HTTP
-    const authResponse = ResultToHttpHelper.handleAuth(result) as any;
+    const authUser = ResultToHttpHelper.handleAuth(result);
 
-    // Aqui viriam os tokens do Supabase
-    // Por enquanto, apenas retorna user info
+    // Retorna usuário e tokens do Supabase
     return {
-      user: authResponse.user,
-      accessToken: 'token_will_come_from_repository',
-      refreshToken: undefined,
+      user: {
+        id: authUser.id,
+        email: authUser.email,
+        fullName: authUser.fullName,
+        role: authUser.role.getValue(),
+        createdAt: authUser.createdAt,
+      },
+      accessToken: authUser.accessToken,
+      refreshToken: authUser.refreshToken,
     };
   }
 

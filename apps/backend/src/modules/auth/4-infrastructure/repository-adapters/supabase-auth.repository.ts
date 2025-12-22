@@ -233,7 +233,7 @@ export class SupabaseAuthRepository implements AuthRepositoryContract {
    * @param profile - Dados do profile do usuário
    * @returns AuthUserEntity ou null se houver erro
    */
-  private mapToAuthUserEntity(_session: any, profile: ProfileRow): AuthUserEntity | null {
+  private mapToAuthUserEntity(session: any, profile: ProfileRow): AuthUserEntity | null {
     try {
       // Cria value object de role
       const roleResult = UserRoleValueObject.create(profile.role);
@@ -247,13 +247,15 @@ export class SupabaseAuthRepository implements AuthRepositoryContract {
         return null;
       }
 
-      // Cria entidade
+      // Cria entidade com tokens da sessão
       return AuthUserEntity.create({
         id: profile.id,
         email: profile.email,
         fullName: profile.full_name,
         role: roleResult.data,
         createdAt: new Date(profile.created_at),
+        accessToken: session?.access_token || '',
+        refreshToken: session?.refresh_token,
       });
     } catch (error) {
       const errorMessage =
@@ -270,10 +272,43 @@ export class SupabaseAuthRepository implements AuthRepositoryContract {
 
   /**
    * Mapeia profile para AuthUserEntity (sem session)
+   * Usado para getCurrentUser que não retorna tokens
    * @param profile - Dados do profile
    * @returns AuthUserEntity ou null
    */
   private mapToAuthUserEntityFromProfile(profile: ProfileRow): AuthUserEntity | null {
-    return this.mapToAuthUserEntity(null, profile);
+    try {
+      // Cria value object de role
+      const roleResult = UserRoleValueObject.create(profile.role);
+
+      if (!roleResult.success) {
+        this.logger.error('Role inválida do banco de dados', {
+          role: profile.role,
+          userId: profile.id,
+        });
+
+        return null;
+      }
+
+      // Cria entidade sem tokens (getCurrentUser não retorna tokens)
+      return AuthUserEntity.create({
+        id: profile.id,
+        email: profile.email,
+        fullName: profile.full_name,
+        role: roleResult.data,
+        createdAt: new Date(profile.created_at),
+        accessToken: '', // Vazio para getCurrentUser
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erro desconhecido';
+
+      this.logger.error('Erro ao mapear usuario para entidade', {
+        error: errorMessage,
+        userId: profile.id,
+      });
+
+      return null;
+    }
   }
 }
