@@ -30,7 +30,7 @@ import { LoginRequestDto } from '../../2-application/dto/login-request.dto';
  * Controller de autenticação
  * Implementa endpoints de login, logout e obtenção de usuário atual
  */
-@Controller('api/auth')
+@Controller('auth')
 export class AuthController {
   constructor(
     @Inject(LOGIN_USECASE) private readonly loginUseCase: LoginUseCase,
@@ -42,7 +42,7 @@ export class AuthController {
 
   /**
    * Endpoint de login
-   * POST /api/auth/login
+   * POST /auth/login (com prefixo global: /api/auth/login)
    * @param dto - Dados de login (email, password)
    * @returns AuthResponseDto com usuário e tokens
    */
@@ -55,25 +55,15 @@ export class AuthController {
     const result = await this.loginUseCase.execute(request);
 
     // Converte Result em resposta HTTP
-    const authUser = ResultToHttpHelper.handleAuth(result);
+    const authResponse = ResultToHttpHelper.handleAuth(result);
 
     // Retorna usuário e tokens do Supabase
-    return {
-      user: {
-        id: authUser.id,
-        email: authUser.email,
-        fullName: authUser.fullName,
-        role: authUser.role.getValue(),
-        createdAt: authUser.createdAt,
-      },
-      accessToken: authUser.accessToken,
-      refreshToken: authUser.refreshToken,
-    };
+    return authResponse;
   }
 
   /**
    * Endpoint de logout
-   * POST /api/auth/logout
+   * POST /auth/logout (com prefixo global: /api/auth/logout)
    * Protegido por JwtAuthGuard
    * @param user - Usuário autenticado
    * @returns { message: 'Logout realizado com sucesso' }
@@ -96,7 +86,7 @@ export class AuthController {
 
   /**
    * Endpoint para obter dados do usuário autenticado
-   * GET /api/auth/me
+   * GET /auth/me (com prefixo global: /api/auth/me)
    * Protegido por JwtAuthGuard
    * @param user - Usuário autenticado
    * @returns Dados do usuário autenticado
@@ -119,7 +109,7 @@ export class AuthController {
 
   /**
    * Endpoint de teste - apenas admin pode acessar
-   * GET /api/auth/admin-test
+   * GET /auth/admin-test (com prefixo global: /api/auth/admin-test)
    * @param user - Usuário autenticado
    * @returns Mensagem de teste
    */
