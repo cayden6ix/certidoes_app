@@ -16,13 +16,7 @@ export function DashboardPage(): JSX.Element {
     const fetchHealth = async (): Promise<void> => {
       try {
         const result = await checkApiHealth();
-        if (result.error) {
-          setError(result.error);
-        } else if (result.data) {
-          setApiStatus(result.data);
-        } else {
-          setError('Resposta vazia da API');
-        }
+        setApiStatus(result);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erro ao conectar com API';
         setError(message);

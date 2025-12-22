@@ -1,27 +1,45 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { AuthProvider } from './contexts/AuthContext';
 import { LoginPage, DashboardPage, RequestCertificatePage } from './pages';
 
 /**
  * Componente principal da aplicação
- * Define as rotas conforme Sprint 1
+ * Gerencia autenticação e rotas protegidas
  */
 function App(): JSX.Element {
   return (
-    <Routes>
-      {/* Rotas públicas */}
-      <Route path="/login" element={<LoginPage />} />
+    <AuthProvider>
+      <Routes>
+        {/* Rotas públicas */}
+        <Route path="/login" element={<LoginPage />} />
 
-      {/* Rotas do cliente (serão protegidas na Sprint 2) */}
-      <Route path="/dashboard" element={<DashboardPage />} />
-      <Route path="/request-certificate" element={<RequestCertificatePage />} />
+        {/* Rotas protegidas (requerem autenticação) */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/request-certificate"
+          element={
+            <ProtectedRoute>
+              <RequestCertificatePage />
+            </ProtectedRoute>
+          }
+        />
 
-      {/* Redirect da raiz para dashboard */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        {/* Redirect da raiz para login */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
 
-      {/* 404 - Redireciona para dashboard */}
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
-    </Routes>
+        {/* 404 - Redireciona para login */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </AuthProvider>
   );
 }
 
