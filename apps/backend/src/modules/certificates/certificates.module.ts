@@ -3,6 +3,7 @@ import { CertificatesController } from './3-interface-adapters/web-controllers/c
 import { certificatesProviders } from './4-infrastructure/di/certificates.providers';
 import { AuthModule } from '../auth/auth.module';
 import { SupabaseModule } from '../supabase/supabase.module';
+import { CertificateTypesService } from '../admin/2-application/services/certificate-types.service';
 
 /**
  * Módulo de certidões
@@ -12,7 +13,7 @@ import { SupabaseModule } from '../supabase/supabase.module';
 @Module({
   imports: [AuthModule, SupabaseModule],
   controllers: [CertificatesController],
-  providers: [...certificatesProviders],
+  providers: [...certificatesProviders, CertificateTypesService],
   exports: [],
 })
 export class CertificatesModule {}

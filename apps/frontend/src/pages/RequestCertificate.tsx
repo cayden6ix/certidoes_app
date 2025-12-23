@@ -1,9 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
-import { createCertificate, type CreateCertificateRequest } from '../lib/api';
+import {
+  createCertificate,
+  listCertificateTypes,
+  type CertificateCatalogType,
+  type CreateCertificateRequest,
+} from '../lib/api';
 
 /**
  * Página de Solicitação de Certidão
@@ -24,6 +29,40 @@ export function RequestCertificatePage(): JSX.Element {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [certificateTypes, setCertificateTypes] = useState<CertificateCatalogType[]>([]);
+  const [isLoadingTypes, setIsLoadingTypes] = useState(false);
+  const [typesError, setTypesError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+
+    let isActive = true;
+    const fetchTypes = async (): Promise<void> => {
+      setIsLoadingTypes(true);
+      const response = await listCertificateTypes(token, { limit: 100 });
+
+      if (!isActive) return;
+
+      if (response.error || !response.data) {
+        setTypesError(response.error ?? 'Não foi possível carregar os tipos de certidão.');
+        setCertificateTypes([]);
+      } else {
+        setTypesError(null);
+        const activeTypes = response.data.data.filter(
+          (type) => type.isActive === undefined || type.isActive,
+        );
+        setCertificateTypes(activeTypes);
+      }
+
+      setIsLoadingTypes(false);
+    };
+
+    void fetchTypes();
+
+    return () => {
+      isActive = false;
+    };
+  }, [token]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
@@ -137,16 +176,23 @@ export function RequestCertificatePage(): JSX.Element {
                 onChange={handleChange}
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
                 required
-                disabled={isSubmitting}
+                disabled={isSubmitting || isLoadingTypes}
               >
-                <option value="">Selecione o tipo</option>
-                <option value="Certidão de Nascimento">Certidão de Nascimento</option>
-                <option value="Certidão de Casamento">Certidão de Casamento</option>
-                <option value="Certidão de Óbito">Certidão de Óbito</option>
-                <option value="Inteiro Teor">Inteiro Teor</option>
-                <option value="Certidão de Averbação">Certidão de Averbação</option>
-                <option value="Segunda Via">Segunda Via</option>
+                <option value="">
+                  {isLoadingTypes ? 'Carregando tipos...' : 'Selecione o tipo'}
+                </option>
+                {!isLoadingTypes && certificateTypes.length === 0 && (
+                  <option value="" disabled>
+                    Nenhum tipo disponível
+                  </option>
+                )}
+                {certificateTypes.map((type) => (
+                  <option key={type.id} value={type.name}>
+                    {type.name}
+                  </option>
+                ))}
               </select>
+              {typesError && <p className="mt-1 text-sm text-red-600">{typesError}</p>}
             </div>
 
             <div>

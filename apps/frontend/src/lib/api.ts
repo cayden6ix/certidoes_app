@@ -214,6 +214,14 @@ export interface ListCertificatesParams {
   offset?: number;
 }
 
+export interface ListCertificateTypesParams {
+  search?: string;
+  page?: number;
+  pageSize?: number;
+  limit?: number;
+  offset?: number;
+}
+
 /**
  * Cria uma nova certidão
  */
@@ -259,13 +267,31 @@ export async function listCertificates(
   });
 }
 
+export async function listCertificateTypes(
+  token: string,
+  params?: ListCertificateTypesParams,
+): Promise<ApiResponse<PaginatedResult<CertificateCatalogType>>> {
+  const queryParams = new URLSearchParams();
+  if (params?.search) queryParams.append('search', params.search);
+  if (params?.page) queryParams.append('page', params.page.toString());
+  if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
+  if (params?.limit) queryParams.append('limit', params.limit.toString());
+  if (params?.offset) queryParams.append('offset', params.offset.toString());
+
+  const queryString = queryParams.toString();
+  const endpoint = queryString ? `/certificates/types?${queryString}` : '/certificates/types';
+
+  return apiClient<PaginatedResult<CertificateCatalogType>>(endpoint, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
 /**
  * Obtém uma certidão específica
  */
-export async function getCertificate(
-  token: string,
-  id: string,
-): Promise<ApiResponse<Certificate>> {
+export async function getCertificate(token: string, id: string): Promise<ApiResponse<Certificate>> {
   return apiClient<Certificate>(`/certificates/${id}`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -303,8 +329,6 @@ export async function updateCertificate(
     body: JSON.stringify(data),
   });
 }
-
-// ============ ADMIN API ============
 
 export interface PaginatedResult<T> {
   data: T[];
@@ -354,6 +378,8 @@ export interface ListAdminParams {
   limit?: number;
   offset?: number;
 }
+
+// ============ ADMIN API ============
 
 export interface CreateAdminUserRequest {
   fullName: string;
@@ -468,10 +494,7 @@ export async function updatePaymentType(
   });
 }
 
-export async function deletePaymentType(
-  token: string,
-  id: string,
-): Promise<ApiResponse<void>> {
+export async function deletePaymentType(token: string, id: string): Promise<ApiResponse<void>> {
   return apiClient<void>(`/admin/payment-types/${id}`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
@@ -530,10 +553,7 @@ export async function updateCertificateType(
   });
 }
 
-export async function deleteCertificateType(
-  token: string,
-  id: string,
-): Promise<ApiResponse<void>> {
+export async function deleteCertificateType(token: string, id: string): Promise<ApiResponse<void>> {
   return apiClient<void>(`/admin/certificate-types/${id}`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
@@ -592,10 +612,7 @@ export async function updateCertificateTag(
   });
 }
 
-export async function deleteCertificateTag(
-  token: string,
-  id: string,
-): Promise<ApiResponse<void>> {
+export async function deleteCertificateTag(token: string, id: string): Promise<ApiResponse<void>> {
   return apiClient<void>(`/admin/certificate-tags/${id}`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },

@@ -30,6 +30,7 @@ import { CreateCertificateRequestDto } from '../../2-application/dto/create-cert
 import { ListCertificatesRequestDto } from '../../2-application/dto/list-certificates-request.dto';
 import { UpdateCertificateRequestDto } from '../../2-application/dto/update-certificate-request.dto';
 import { ListCertificateEventsRequestDto } from '../../2-application/dto/list-certificate-events-request.dto';
+import { CertificateTypesService } from '../../../admin/2-application/services/certificate-types.service';
 import { JwtAuthGuard } from '../../../auth/3-interface-adapters/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../auth/3-interface-adapters/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../../auth/3-interface-adapters/types/express-request.types';
@@ -37,6 +38,7 @@ import { CreateCertificateApiDto } from '../api-dto/create-certificate.dto';
 import { UpdateCertificateAdminApiDto } from '../api-dto/update-certificate.dto';
 import { ListCertificatesQueryDto } from '../api-dto/list-certificates-query.dto';
 import { CertificateResultToHttpHelper } from '../helpers/certificate-result-to-http.helper';
+import { ListCertificateTypesQueryDto } from '../../../admin/3-interface-adapters/api-dto/certificate-types.dto';
 
 /**
  * Controller de certidões
@@ -59,6 +61,7 @@ export class CertificatesController {
     private readonly listCertificateEventsUseCase: ListCertificateEventsUseCase,
     @Inject(LOGGER_CONTRACT)
     private readonly logger: LoggerContract,
+    private readonly certificateTypesService: CertificateTypesService,
   ) {}
 
   /**
@@ -70,10 +73,7 @@ export class CertificatesController {
    */
   @Post()
   @HttpCode(201)
-  async create(
-    @Body() dto: CreateCertificateApiDto,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  async create(@Body() dto: CreateCertificateApiDto, @CurrentUser() user: AuthenticatedUser) {
     this.logger.debug('Requisição de criação de certidão', {
       userId: user.userId,
       certificateType: dto.certificateType,
@@ -106,10 +106,7 @@ export class CertificatesController {
    */
   @Get()
   @HttpCode(200)
-  async findAll(
-    @Query() query: ListCertificatesQueryDto,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  async findAll(@Query() query: ListCertificatesQueryDto, @CurrentUser() user: AuthenticatedUser) {
     this.logger.debug('Requisição de listagem de certidões', {
       userId: user.userId,
       userRole: user.role,
@@ -145,6 +142,34 @@ export class CertificatesController {
     };
   }
 
+  @Get('types')
+  @HttpCode(200)
+  async listTypes(@Query() query: ListCertificateTypesQueryDto) {
+    this.logger.debug('Requisição de listagem de tipos de certidão', {
+      search: query.search,
+    });
+
+    const pagination = PaginationService.normalize({
+      page: query.page,
+      pageSize: query.pageSize,
+      limit: query.limit,
+      offset: query.offset,
+    });
+
+    const result = await this.certificateTypesService.list({
+      search: query.search,
+      limit: pagination.limit,
+      offset: pagination.offset,
+    });
+
+    return {
+      data: result.data,
+      total: result.total,
+      limit: pagination.limit,
+      offset: pagination.offset,
+    };
+  }
+
   /**
    * Obtém uma certidão específica
    * GET /certificates/:id (com prefixo global: /api/certificates/:id)
@@ -156,10 +181,7 @@ export class CertificatesController {
    */
   @Get(':id')
   @HttpCode(200)
-  async findOne(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  async findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser) {
     this.logger.debug('Requisição de busca de certidão', {
       certificateId: id,
       userId: user.userId,
@@ -188,10 +210,7 @@ export class CertificatesController {
    */
   @Get(':id/events')
   @HttpCode(200)
-  async listEvents(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  async listEvents(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser) {
     this.logger.debug('Requisição de eventos da certidão', {
       certificateId: id,
       userId: user.userId,
