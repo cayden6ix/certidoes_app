@@ -9,6 +9,14 @@ import type {
 } from '../../1-domain/contracts/token.service.contract';
 
 /**
+ * Interface para tipagem da linha de profile retornada pela query
+ */
+interface ProfileRow {
+  role: 'client' | 'admin';
+  email: string;
+}
+
+/**
  * Implementação de serviço de tokens com Supabase
  * Responsável por validar JWT e extrair informações do token
  */
@@ -55,7 +63,7 @@ export class SupabaseTokenService implements TokenServiceContract {
         .from('profiles')
         .select('role, email')
         .eq('id', userData.user.id)
-        .single();
+        .single<ProfileRow>();
 
       if (profileError || !profileData) {
         this.logger.warn('Profile não encontrado para token válido', {
@@ -68,8 +76,8 @@ export class SupabaseTokenService implements TokenServiceContract {
 
       const tokenPayload: TokenPayload = {
         userId: userData.user.id,
-        role: (profileData as any).role,
-        email: (profileData as any).email,
+        role: profileData.role,
+        email: profileData.email,
       };
 
       this.logger.debug('Token validado com sucesso', {
@@ -80,7 +88,7 @@ export class SupabaseTokenService implements TokenServiceContract {
       return success(tokenPayload);
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : 'Erro desconhecido';
+        error instanceof Error ? error.message : 'Erro ao validar token';
 
       this.logger.error('Erro ao validar token', {
         error: errorMessage,
@@ -118,7 +126,7 @@ export class SupabaseTokenService implements TokenServiceContract {
       return success(token);
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : 'Erro desconhecido';
+        error instanceof Error ? error.message : 'Erro ao extrair token do header';
 
       this.logger.error('Erro ao extrair token do header', {
         error: errorMessage,

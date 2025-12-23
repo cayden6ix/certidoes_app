@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import type { LoggerContract } from '../../../../shared/1-domain/contracts/logger.contract';
 import { LOGGER_CONTRACT } from '../../../../shared/1-domain/contracts/logger.contract';
+import { PaginationService } from '../../../../shared/2-application/services/pagination.service';
 import {
   CREATE_CERTIFICATE_USECASE,
   LIST_CERTIFICATES_USECASE,
@@ -115,14 +116,13 @@ export class CertificatesController {
       filters: query,
     });
 
-    const pageSize = query.pageSize ?? query.limit ?? 50;
-    const page =
-      query.page ?? (query.offset !== undefined ? Math.floor(query.offset / pageSize) + 1 : 1);
-    const limit = query.page !== undefined || query.pageSize !== undefined ? pageSize : query.limit;
-    const offset =
-      query.page !== undefined || query.pageSize !== undefined
-        ? (page - 1) * pageSize
-        : query.offset;
+    // Delega lógica de paginação para o serviço especializado
+    const pagination = PaginationService.normalize({
+      page: query.page,
+      pageSize: query.pageSize,
+      limit: query.limit,
+      offset: query.offset,
+    });
 
     const request = new ListCertificatesRequestDto(user.userId, user.role, {
       search: query.search,
@@ -130,8 +130,8 @@ export class CertificatesController {
       to: query.to,
       status: query.status,
       priority: query.priority,
-      limit,
-      offset,
+      limit: pagination.limit,
+      offset: pagination.offset,
     });
 
     const result = await this.listCertificatesUseCase.execute(request);

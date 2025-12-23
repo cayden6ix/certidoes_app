@@ -1,0 +1,176 @@
+import type { LoggerContract } from '../../../../../shared/1-domain/contracts/logger.contract';
+import { CertificateEntity } from '../../../1-domain/entities/certificate.entity';
+import {
+  CertificateStatusValueObject,
+  type CertificateStatusType,
+} from '../../../1-domain/value-objects/certificate-status.value-object';
+import {
+  CertificatePriorityValueObject,
+  type CertificatePriorityType,
+} from '../../../1-domain/value-objects/certificate-priority.value-object';
+import type { CertificatePriority } from '../../../../supabase/1-domain/types/database.types';
+import type { CertificateRow } from '../types/certificate-row.types';
+import { PRIORITY_TO_DB } from '../types/certificate-row.types';
+
+/**
+ * Status padrão para certificados sem status definido
+ */
+const DEFAULT_STATUS: CertificateStatusType = 'pending';
+
+/**
+ * Mapper responsável por converter dados do banco para entidades de domínio
+ * Segue Single Responsibility Principle
+ */
+export class CertificateMapper {
+  constructor(private readonly logger: LoggerContract) {}
+
+  /**
+   * Mapeia uma linha do banco para entidade de domínio
+   * @param row - Linha do banco de dados
+   * @param certificateTypeName - Nome do tipo de certidão (opcional, resolvido externamente)
+   * @returns Entidade ou null se falhar
+   */
+  mapToEntity(row: CertificateRow, certificateTypeName?: string): CertificateEntity | null {
+    try {
+      const statusValue = row.status ?? DEFAULT_STATUS;
+      const statusResult = CertificateStatusValueObject.create(statusValue);
+
+      if (!statusResult.success) {
+        this.logger.error('Status inválido no banco', { status: statusValue, id: row.id });
+        return null;
+      }
+
+      const priorityValue = this.mapPriorityFromDb(row.priority);
+      const priorityResult = CertificatePriorityValueObject.create(priorityValue);
+
+      if (!priorityResult.success) {
+        this.logger.error('Prioridade inválida no banco', {
+          priority: priorityValue,
+          id: row.id,
+        });
+        return null;
+      }
+
+      return CertificateEntity.create({
+        id: row.id,
+        userId: row.user_id,
+        certificateType: certificateTypeName ?? this.resolveCertificateTypeFromRow(row),
+        recordNumber: row.record_number,
+        partiesName: this.resolvePartiesName(row),
+        notes: this.resolveNotes(row),
+        priority: priorityResult.data,
+        status: statusResult.data,
+        cost: row.cost ?? null,
+        additionalCost: row.additional_cost ?? null,
+        orderNumber: row.order_number ?? null,
+        paymentDate: row.payment_date ? new Date(row.payment_date) : null,
+        createdAt: new Date(row.created_at),
+        updatedAt: new Date(row.updated_at),
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao mapear certidão';
+      this.logger.error('Erro ao mapear certidão para entidade', {
+        error: errorMessage,
+        id: row.id,
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Mapeia múltiplas linhas para entidades
+   * Filtra automaticamente as que falharem no mapeamento
+   */
+  mapManyToEntities(
+    rows: CertificateRow[],
+    typeNameMap: Map<string, string>,
+  ): CertificateEntity[] {
+    return rows
+      .map((row) => this.mapToEntity(row, this.resolveCertificateTypeName(row, typeNameMap)))
+      .filter((entity): entity is CertificateEntity => entity !== null);
+  }
+
+  /**
+   * Converte prioridade para valor do banco
+   */
+  mapPriorityToDb(priority: CertificatePriorityType): CertificatePriority {
+    return PRIORITY_TO_DB[priority];
+  }
+
+  /**
+   * Converte prioridade do banco para tipo de domínio
+   */
+  mapPriorityFromDb(priority: CertificateRow['priority']): CertificatePriorityType {
+    if (priority === 'urgent' || priority === 'normal') {
+      return priority;
+    }
+
+    if (typeof priority === 'number') {
+      return priority >= PRIORITY_TO_DB.urgent ? 'urgent' : 'normal';
+    }
+
+    return 'normal';
+  }
+
+  /**
+   * Resolve o nome das partes de diferentes colunas possíveis
+   * O banco pode ter parties_name, parties_names ou party_names
+   */
+  resolvePartiesName(row: CertificateRow): string {
+    const value = row.parties_name ?? row.parties_names ?? row.party_names;
+
+    if (!value) {
+      return '';
+    }
+
+    if (Array.isArray(value)) {
+      return value.join(', ');
+    }
+
+    return value;
+  }
+
+  /**
+   * Resolve notas de diferentes colunas possíveis
+   */
+  resolveNotes(row: CertificateRow): string | null {
+    return row.notes ?? row.observations ?? null;
+  }
+
+  /**
+   * Resolve o nome do tipo de certidão usando mapa de IDs
+   */
+  resolveCertificateTypeName(row: CertificateRow, typeNameMap: Map<string, string>): string {
+    if (row.certificate_type) {
+      return row.certificate_type;
+    }
+
+    if (row.certificate_type_id) {
+      return typeNameMap.get(row.certificate_type_id) ?? row.certificate_type_id;
+    }
+
+    return '';
+  }
+
+  /**
+   * Resolve o nome do tipo de certidão diretamente da linha
+   * Usado quando não há mapa de tipos disponível
+   */
+  private resolveCertificateTypeFromRow(row: CertificateRow): string {
+    return row.certificate_type ?? row.certificate_type_id ?? '';
+  }
+
+  /**
+   * Formata nomes de partes para array (quando necessário pelo banco)
+   */
+  formatPartyNames(value: unknown): string[] {
+    if (typeof value !== 'string') {
+      return [];
+    }
+
+    return value
+      .split(/[,;\n]+/)
+      .map((name) => name.trim())
+      .filter((name) => name.length > 0);
+  }
+}

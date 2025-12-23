@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient, Session } from '@supabase/supabase-js';
 import type { Result } from '../../../../shared/1-domain/types/result.type';
 import { failure, success } from '../../../../shared/1-domain/types/result.type';
 import type { LoggerContract } from '../../../../shared/1-domain/contracts/logger.contract';
@@ -106,7 +106,7 @@ export class SupabaseAuthRepository implements AuthRepositoryContract {
       return success(authUser);
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : 'Erro desconhecido';
+        error instanceof Error ? error.message : 'Erro durante login';
 
       this.logger.error('Erro crítico durante login', {
         error: errorMessage,
@@ -138,7 +138,7 @@ export class SupabaseAuthRepository implements AuthRepositoryContract {
       return success(undefined as never);
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : 'Erro desconhecido';
+        error instanceof Error ? error.message : 'Erro durante logout';
 
       this.logger.error('Erro durante logout', {
         error: errorMessage,
@@ -205,7 +205,7 @@ export class SupabaseAuthRepository implements AuthRepositoryContract {
       return success(authUser);
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : 'Erro desconhecido';
+        error instanceof Error ? error.message : 'Erro ao obter usuário atual';
 
       this.logger.error('Erro ao obter usuário atual', {
         error: errorMessage,
@@ -251,7 +251,7 @@ export class SupabaseAuthRepository implements AuthRepositoryContract {
       return success(authUser);
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : 'Erro desconhecido';
+        error instanceof Error ? error.message : 'Erro ao obter usuário por ID';
 
       this.logger.error('Erro ao obter usuário por ID', {
         userId,
@@ -264,11 +264,11 @@ export class SupabaseAuthRepository implements AuthRepositoryContract {
 
   /**
    * Mapeia sessão e profile para AuthUserEntity
-   * @param session - Sessão retornada pelo Supabase Auth
+   * @param session - Sessão retornada pelo Supabase Auth (tipada)
    * @param profile - Dados do profile do usuário
    * @returns AuthUserEntity ou null se houver erro
    */
-  private mapToAuthUserEntity(session: any, profile: ProfileRow): AuthUserEntity | null {
+  private mapToAuthUserEntity(session: Session, profile: ProfileRow): AuthUserEntity | null {
     try {
       // Cria value object de role
       const roleResult = UserRoleValueObject.create(profile.role);
@@ -289,12 +289,12 @@ export class SupabaseAuthRepository implements AuthRepositoryContract {
         fullName: profile.full_name,
         role: roleResult.data,
         createdAt: new Date(profile.created_at),
-        accessToken: session?.access_token || '',
-        refreshToken: session?.refresh_token,
+        accessToken: session.access_token,
+        refreshToken: session.refresh_token,
       });
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : 'Erro desconhecido';
+        error instanceof Error ? error.message : 'Erro ao mapear usuário para entidade';
 
       this.logger.error('Erro ao mapear usuario para entidade', {
         error: errorMessage,
@@ -336,7 +336,7 @@ export class SupabaseAuthRepository implements AuthRepositoryContract {
       });
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : 'Erro desconhecido';
+        error instanceof Error ? error.message : 'Erro ao mapear usuário para entidade';
 
       this.logger.error('Erro ao mapear usuario para entidade', {
         error: errorMessage,

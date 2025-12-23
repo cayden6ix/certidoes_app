@@ -1,18 +1,21 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import pino from 'pino';
 
 import { AppModule } from './app.module';
+import type { EnvConfiguration, SupabaseConfiguration } from './shared/4-infrastructure/config/env.config';
 
 /**
- * Bootstrap da aplicação NestJS
+ * Cria instância do logger Pino para bootstrap
+ * Usa configuração baseada no ambiente
  */
-async function bootstrap(): Promise<void> {
-  const logger = pino({
-    level: process.env['LOG_LEVEL'] ?? 'info',
+function createBootstrapLogger(logLevel: string, nodeEnv: string): pino.Logger {
+  return pino({
+    level: logLevel,
     transport:
-      process.env['NODE_ENV'] !== 'production'
+      nodeEnv !== 'production'
         ? {
             target: 'pino-pretty',
             options: {
@@ -23,10 +26,32 @@ async function bootstrap(): Promise<void> {
           }
         : undefined,
   });
+}
 
+/**
+ * Bootstrap da aplicação NestJS
+ * A aplicação falha rápido se variáveis obrigatórias não estiverem configuradas
+ */
+async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
   });
+
+  const configService = app.get(ConfigService);
+
+  // Obtém configurações tipadas - falha se não estiverem definidas
+  const envConfiguration = configService.get<EnvConfiguration>('env');
+  const supabaseConfiguration = configService.get<SupabaseConfiguration>('supabase');
+
+  if (!envConfiguration) {
+    throw new Error('Configuração de ambiente não carregada corretamente');
+  }
+
+  if (!supabaseConfiguration) {
+    throw new Error('Configuração do Supabase não carregada corretamente');
+  }
+
+  const logger = createBootstrapLogger(envConfiguration.logLevel, envConfiguration.nodeEnv);
 
   // Prefixo global para todas as rotas
   app.setGlobalPrefix('api');
@@ -43,24 +68,29 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
-  // CORS para desenvolvimento
+  // CORS configurado via variável de ambiente
   app.enableCors({
-    origin: process.env['FRONTEND_URL'] ?? 'http://localhost:5173',
+    origin: envConfiguration.frontendUrl,
     credentials: true,
   });
 
-  const port = parseInt(process.env['BACKEND_PORT'] ?? '3000', 10);
+  await app.listen(envConfiguration.port);
 
-  await app.listen(port);
-
-  logger.info(`Aplicação iniciada na porta ${port}`);
-  logger.info(`Ambiente: ${process.env['NODE_ENV'] ?? 'development'}`);
-  logger.info(`Health check disponível em: http://localhost:${port}/api/health`);
+  logger.info(`Aplicação iniciada na porta ${envConfiguration.port}`);
+  logger.info(`Ambiente: ${envConfiguration.nodeEnv}`);
+  logger.info(`Health check disponível em: http://localhost:${envConfiguration.port}/api/health`);
 }
 
+/**
+ * Inicializa a aplicação
+ * Erros de inicialização são logados via pino e a aplicação termina com código de erro
+ */
+const bootstrapLogger = pino({ level: 'error' });
+
 bootstrap().catch((error: unknown) => {
-  const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-  // eslint-disable-next-line no-console
-  console.error('Falha ao iniciar a aplicação:', errorMessage);
+  const errorMessage = error instanceof Error ? error.message : 'Erro de inicialização desconhecido';
+  const errorStack = error instanceof Error ? error.stack : undefined;
+
+  bootstrapLogger.fatal({ error: errorMessage, stack: errorStack }, 'Falha ao iniciar a aplicação');
   process.exit(1);
 });

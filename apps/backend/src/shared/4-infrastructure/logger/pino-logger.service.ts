@@ -1,21 +1,45 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import pino from 'pino';
 
 import type { LoggerContract } from '../../1-domain/contracts/logger.contract';
+import type { EnvConfiguration } from '../config/env.config';
+
+/**
+ * Chaves de dados sensíveis que devem ser mascarados completamente
+ */
+const SENSITIVE_KEYS = ['password', 'senha', 'secret', 'apiKey', 'api_key'];
+
+/**
+ * Chaves de tokens que devem mostrar apenas prefixo/sufixo
+ */
+const TOKEN_KEYS = ['token', 'accessToken', 'refreshToken', 'jwt'];
+
+/**
+ * Chaves de dados pessoais que devem ser parcialmente mascarados
+ */
+const PERSONAL_KEYS = ['cpf', 'email'];
 
 /**
  * Implementação do LoggerContract usando Pino
- * Logs estruturados com contexto
+ * Logs estruturados com contexto e mascaramento de dados sensíveis
  */
 @Injectable()
 export class PinoLoggerService implements LoggerContract {
   private readonly logger: pino.Logger;
 
-  constructor() {
+  constructor(
+    @Inject(ConfigService)
+    configService: ConfigService,
+  ) {
+    const envConfig = configService.get<EnvConfiguration>('env');
+    const logLevel = envConfig?.logLevel ?? 'info';
+    const nodeEnv = envConfig?.nodeEnv ?? 'development';
+
     this.logger = pino({
-      level: process.env['LOG_LEVEL'] ?? 'info',
+      level: logLevel,
       transport:
-        process.env['NODE_ENV'] !== 'production'
+        nodeEnv !== 'production'
           ? {
               target: 'pino-pretty',
               options: {
@@ -54,31 +78,21 @@ export class PinoLoggerService implements LoggerContract {
   private maskSensitiveData(
     context?: Record<string, unknown>,
   ): Record<string, unknown> | undefined {
-    if (!context) return undefined;
-
-    const sensitiveKeys = ['password', 'senha', 'secret', 'apiKey', 'api_key'];
-    const tokenKeys = ['token', 'accessToken', 'refreshToken', 'jwt'];
-    const personalKeys = ['cpf', 'email'];
+    if (!context) {
+      return undefined;
+    }
 
     const masked: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(context)) {
       const lowerKey = key.toLowerCase();
 
-      if (sensitiveKeys.some((k) => lowerKey.includes(k))) {
+      if (this.isSensitiveKey(lowerKey)) {
         masked[key] = '********';
-      } else if (tokenKeys.some((k) => lowerKey.includes(k))) {
-        if (typeof value === 'string' && value.length > 10) {
-          masked[key] = `${value.slice(0, 4)}...${value.slice(-4)}`;
-        } else {
-          masked[key] = '****';
-        }
-      } else if (personalKeys.some((k) => lowerKey.includes(k))) {
-        if (typeof value === 'string') {
-          masked[key] = this.maskPersonalData(key, value);
-        } else {
-          masked[key] = value;
-        }
+      } else if (this.isTokenKey(lowerKey)) {
+        masked[key] = this.maskToken(value);
+      } else if (this.isPersonalKey(lowerKey)) {
+        masked[key] = typeof value === 'string' ? this.maskPersonalData(key, value) : value;
       } else {
         masked[key] = value;
       }
@@ -87,18 +101,38 @@ export class PinoLoggerService implements LoggerContract {
     return masked;
   }
 
+  private isSensitiveKey(key: string): boolean {
+    return SENSITIVE_KEYS.some((k) => key.includes(k));
+  }
+
+  private isTokenKey(key: string): boolean {
+    return TOKEN_KEYS.some((k) => key.includes(k));
+  }
+
+  private isPersonalKey(key: string): boolean {
+    return PERSONAL_KEYS.some((k) => key.includes(k));
+  }
+
+  private maskToken(value: unknown): string {
+    if (typeof value === 'string' && value.length > 10) {
+      return `${value.slice(0, 4)}...${value.slice(-4)}`;
+    }
+    return '****';
+  }
+
   private maskPersonalData(key: string, value: string): string {
     if (key.toLowerCase() === 'cpf' && value.length >= 11) {
       return `${value.slice(0, 3)}.***.***-${value.slice(-2)}`;
     }
+
     if (key.toLowerCase() === 'email' && value.includes('@')) {
       const [local, domain] = value.split('@');
       if (local && domain) {
-        const maskedLocal =
-          local.length > 2 ? `${local.slice(0, 2)}***` : '***';
+        const maskedLocal = local.length > 2 ? `${local.slice(0, 2)}***` : '***';
         return `${maskedLocal}@${domain}`;
       }
     }
+
     return value;
   }
 }

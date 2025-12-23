@@ -1,4 +1,3 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Result } from '../../../../shared/1-domain/types/result.type';
 import { failure, success } from '../../../../shared/1-domain/types/result.type';
 import type { LoggerContract } from '../../../../shared/1-domain/contracts/logger.contract';
@@ -10,64 +9,38 @@ import type {
   PaginatedCertificates,
 } from '../../1-domain/contracts/certificate.repository.contract';
 import { CertificateEntity } from '../../1-domain/entities/certificate.entity';
-import {
-  CertificateStatusValueObject,
-  type CertificateStatusType,
-} from '../../1-domain/value-objects/certificate-status.value-object';
-import {
-  CertificatePriorityValueObject,
-  type CertificatePriorityType,
-} from '../../1-domain/value-objects/certificate-priority.value-object';
 import { CertificateError } from '../../1-domain/errors/certificate-errors.enum';
-
-/**
- * Interface para tipagem da linha de certificate do banco
- */
-interface CertificateRow {
-  id: string;
-  user_id: string;
-  certificate_type?: string;
-  certificate_type_id?: string;
-  record_number: string;
-  parties_name?: string | string[];
-  parties_names?: string | string[];
-  party_names?: string | string[];
-  notes?: string | null;
-  observations?: string | null;
-  priority?: 'normal' | 'urgent' | number | null;
-  status?: 'pending' | 'in_progress' | 'completed' | 'canceled';
-  cost?: number | null;
-  additional_cost?: number | null;
-  order_number?: string | null;
-  payment_date?: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-interface CertificateTypeRow {
-  id: string;
-  name: string;
-}
-
-const CERTIFICATE_TYPE_TABLES = ['certificate_types', 'certificates_type'] as const;
-const PRIORITY_TO_DB: Record<CertificatePriorityType, number> = {
-  normal: 1,
-  urgent: 2,
-};
-const DEFAULT_STATUS: CertificateStatusType = 'pending';
+import type { TypedSupabaseClient } from '../../../supabase/4-infrastructure/di/supabase.providers';
+import type {
+  Tables,
+  TablesInsert,
+  TablesUpdate,
+  CertificateStatus,
+} from '../../../supabase/1-domain/types/database.types';
+import type { CertificateRow } from './types/certificate-row.types';
+import { CertificateMapper } from './mappers/certificate.mapper';
+import { CertificateTypeResolver } from './services/certificate-type.resolver';
+import { CertificateSearchHelper } from './helpers/search.helper';
 
 /**
  * Implementação de repositório de certidões com Supabase
  * Usa serviceRoleKey para bypass de RLS (controle de permissões no backend)
+ *
+ * Responsabilidades delegadas:
+ * - CertificateMapper: conversão de dados do banco para entidades
+ * - CertificateTypeResolver: resolução de IDs de tipos de certidão
+ * - CertificateSearchHelper: normalização de valores de busca
  */
 export class SupabaseCertificateRepository implements CertificateRepositoryContract {
-  private supabaseClient: SupabaseClient;
+  private readonly mapper: CertificateMapper;
+  private readonly typeResolver: CertificateTypeResolver;
 
   constructor(
-    supabaseClient: SupabaseClient,
+    private readonly supabaseClient: TypedSupabaseClient,
     private readonly logger: LoggerContract,
   ) {
-    this.supabaseClient = supabaseClient;
+    this.mapper = new CertificateMapper(logger);
+    this.typeResolver = new CertificateTypeResolver(supabaseClient, logger);
     this.logger.debug('Repositório de certidões Supabase inicializado');
   }
 
@@ -76,34 +49,19 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
    */
   async create(data: CreateCertificateData): Promise<Result<CertificateEntity>> {
     try {
-      const certificateTypeIdResult = await this.resolveCertificateTypeId(data.certificateType);
-      if (!certificateTypeIdResult.success) {
-        return failure(certificateTypeIdResult.error);
+      const typeIdResult = await this.typeResolver.resolveTypeId(data.certificateType);
+
+      if (!typeIdResult.success) {
+        return failure(typeIdResult.error);
       }
 
-      const insertData: Record<string, unknown> = {
-        user_id: data.userId,
-        certificate_type_id: certificateTypeIdResult.data,
-        record_number: data.recordNumber,
-        party_names: data.partiesName,
-        observations: data.notes ?? null,
-        priority: this.mapPriorityToDb(data.priority ?? 'normal'),
-      };
+      const insertData = this.buildInsertData(data, typeIdResult.data);
 
-      let { data: insertedData, error } = await this.supabaseClient
+      const { data: insertedData, error } = await this.supabaseClient
         .from('certificates')
         .insert(insertData)
         .select()
-        .single<CertificateRow>();
-
-      if (error && this.isArrayLiteralError(error.message) && typeof insertData['party_names'] === 'string') {
-        insertData['party_names'] = this.formatPartyNames(insertData['party_names']);
-        ({ data: insertedData, error } = await this.supabaseClient
-          .from('certificates')
-          .insert(insertData)
-          .select()
-          .single<CertificateRow>());
-      }
+        .single();
 
       if (error || !insertedData) {
         this.logger.error('Erro ao criar certidão no banco', {
@@ -113,14 +71,17 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
         return failure(CertificateError.DATABASE_ERROR);
       }
 
-      const entity = this.mapToEntity(insertedData, data.certificateType);
+      const typedInsertedData = insertedData as Tables<'certificates'>;
+      const row = this.mapDatabaseRowToCertificateRow(typedInsertedData);
+      const entity = this.mapper.mapToEntity(row, data.certificateType);
+
       if (!entity) {
         return failure(CertificateError.UNEXPECTED_ERROR);
       }
 
       return success(entity);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao criar certidão';
       this.logger.error('Erro crítico ao criar certidão', { error: errorMessage });
       return failure(CertificateError.DATABASE_ERROR);
     }
@@ -135,7 +96,7 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
         .from('certificates')
         .select('*')
         .eq('id', id)
-        .single<CertificateRow>();
+        .single();
 
       if (error || !data) {
         if (error?.code === 'PGRST116') {
@@ -145,18 +106,22 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
         return failure(CertificateError.DATABASE_ERROR);
       }
 
-      const typeNameMap = await this.fetchCertificateTypeNameMap(
-        data.certificate_type_id ? [data.certificate_type_id] : [],
+      const typedData = data as Tables<'certificates'>;
+      const row = this.mapDatabaseRowToCertificateRow(typedData);
+      const typeNameMap = await this.typeResolver.fetchTypeNameMap(
+        row.certificate_type_id ? [row.certificate_type_id] : [],
       );
-      const certificateTypeName = this.resolveCertificateTypeName(data, typeNameMap);
-      const entity = this.mapToEntity(data, certificateTypeName);
+
+      const certificateTypeName = this.mapper.resolveCertificateTypeName(row, typeNameMap);
+      const entity = this.mapper.mapToEntity(row, certificateTypeName);
+
       if (!entity) {
         return failure(CertificateError.UNEXPECTED_ERROR);
       }
 
       return success(entity);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao buscar certidão';
       this.logger.error('Erro crítico ao buscar certidão', { error: errorMessage, id });
       return failure(CertificateError.DATABASE_ERROR);
     }
@@ -167,32 +132,41 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
    */
   async findAll(options: ListCertificatesOptions): Promise<Result<PaginatedCertificates>> {
     try {
-      let query = this.supabaseClient.from('certificates').select('*', { count: 'exact' });
+      // Inicia query base
+      let query = this.supabaseClient
+        .from('certificates')
+        .select('*', { count: 'exact' });
 
       // Aplica filtros
       if (options.userId) {
         query = query.eq('user_id', options.userId);
       }
+
       if (options.from) {
         query = query.gte('created_at', options.from);
       }
+
       if (options.to) {
         query = query.lte('created_at', options.to);
       }
+
       if (options.status) {
-        query = query.eq('status', options.status);
+        query = query.eq('status', options.status as CertificateStatus);
       }
+
       if (options.priority) {
-        const priorityValue = options.priority === 'urgent' ? 'urgent' : 'normal';
-        query = query.eq('priority', this.mapPriorityToDb(priorityValue));
+        const priorityValue = options.priority === 'urgent' ? 2 : 1;
+        query = query.eq('priority', priorityValue);
       }
+
       if (options.search) {
-        const searchValue = this.normalizeSearchValue(options.search);
+        const searchValue = CertificateSearchHelper.normalizeSearchValue(options.search);
+
         if (searchValue) {
-          const typeIds = await this.findCertificateTypeIdsBySearch(searchValue);
+          const typeIds = await this.typeResolver.findTypeIdsBySearch(searchValue);
+
           const searchConditions = [
             `record_number.ilike.%${searchValue}%`,
-            `party_names.cs.{${this.formatArraySearchValue(searchValue)}}`,
           ];
 
           if (typeIds.length > 0) {
@@ -206,9 +180,8 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
       // Aplica paginação
       const limit = options.limit ?? 50;
       const offset = options.offset ?? 0;
-      query = query.range(offset, offset + limit - 1);
 
-      // Ordena por data de criação (mais recentes primeiro)
+      query = query.range(offset, offset + limit - 1);
       query = query.order('created_at', { ascending: false });
 
       const { data, error, count } = await query;
@@ -218,15 +191,12 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
         return failure(CertificateError.DATABASE_ERROR);
       }
 
-      const rows = data as CertificateRow[];
-      const typeIds = rows
-        .map((row) => row.certificate_type_id)
-        .filter((value): value is string => Boolean(value));
-      const typeNameMap = await this.fetchCertificateTypeNameMap(typeIds);
+      const typedDataList = (data ?? []) as Tables<'certificates'>[];
+      const rows = typedDataList.map((row) => this.mapDatabaseRowToCertificateRow(row));
+      const typeIds = this.extractTypeIds(rows);
+      const typeNameMap = await this.typeResolver.fetchTypeNameMap(typeIds);
 
-      const entities = rows
-        .map((row) => this.mapToEntity(row, this.resolveCertificateTypeName(row, typeNameMap)))
-        .filter((entity): entity is CertificateEntity => entity !== null);
+      const entities = this.mapper.mapManyToEntities(rows, typeNameMap);
 
       return success({
         data: entities,
@@ -235,7 +205,7 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
         offset,
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao listar certidões';
       this.logger.error('Erro crítico ao listar certidões', { error: errorMessage });
       return failure(CertificateError.DATABASE_ERROR);
     }
@@ -246,66 +216,20 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
    */
   async update(id: string, data: UpdateCertificateData): Promise<Result<CertificateEntity>> {
     try {
-      // Monta objeto de atualização com nomes de colunas do banco
-      const updateData: Record<string, unknown> = {};
-      let partyNamesValue: string | string[] | undefined;
+      const updateResult = await this.buildUpdateData(data);
 
-      if (data.certificateType !== undefined) {
-        const certificateTypeIdResult = await this.resolveCertificateTypeId(data.certificateType);
-        if (!certificateTypeIdResult.success) {
-          return failure(certificateTypeIdResult.error);
-        }
-        updateData['certificate_type_id'] = certificateTypeIdResult.data;
-      }
-      if (data.recordNumber !== undefined) {
-        updateData['record_number'] = data.recordNumber;
-      }
-      if (data.partiesName !== undefined) {
-        partyNamesValue = data.partiesName;
-        updateData['party_names'] = partyNamesValue;
-      }
-      if (data.notes !== undefined) {
-        updateData['observations'] = data.notes;
-      }
-      if (data.priority !== undefined) {
-        updateData['priority'] = this.mapPriorityToDb(data.priority);
-      }
-      if (data.status !== undefined) {
-        updateData['status'] = data.status;
-      }
-      if (data.cost !== undefined) {
-        updateData['cost'] = data.cost;
-      }
-      if (data.additionalCost !== undefined) {
-        updateData['additional_cost'] = data.additionalCost;
-      }
-      if (data.orderNumber !== undefined) {
-        updateData['order_number'] = data.orderNumber;
-      }
-      if (data.paymentDate !== undefined) {
-        updateData['payment_date'] = data.paymentDate.toISOString().split('T')[0];
+      if (!updateResult.success) {
+        return failure(updateResult.error);
       }
 
-      let { data: updatedData, error } = await this.supabaseClient
+      const updateData = updateResult.data;
+
+      const { data: updatedData, error } = await this.supabaseClient
         .from('certificates')
         .update(updateData)
         .eq('id', id)
         .select()
-        .single<CertificateRow>();
-
-      if (
-        error &&
-        this.isArrayLiteralError(error.message) &&
-        typeof partyNamesValue === 'string'
-      ) {
-        updateData['party_names'] = this.formatPartyNames(partyNamesValue);
-        ({ data: updatedData, error } = await this.supabaseClient
-          .from('certificates')
-          .update(updateData)
-          .eq('id', id)
-          .select()
-          .single<CertificateRow>());
-      }
+        .single();
 
       if (error || !updatedData) {
         if (error?.code === 'PGRST116') {
@@ -315,18 +239,22 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
         return failure(CertificateError.DATABASE_ERROR);
       }
 
-      const typeNameMap = await this.fetchCertificateTypeNameMap(
-        updatedData.certificate_type_id ? [updatedData.certificate_type_id] : [],
+      const typedUpdatedData = updatedData as Tables<'certificates'>;
+      const row = this.mapDatabaseRowToCertificateRow(typedUpdatedData);
+      const typeNameMap = await this.typeResolver.fetchTypeNameMap(
+        row.certificate_type_id ? [row.certificate_type_id] : [],
       );
-      const certificateTypeName = this.resolveCertificateTypeName(updatedData, typeNameMap);
-      const entity = this.mapToEntity(updatedData, certificateTypeName);
+
+      const certificateTypeName = this.mapper.resolveCertificateTypeName(row, typeNameMap);
+      const entity = this.mapper.mapToEntity(row, certificateTypeName);
+
       if (!entity) {
         return failure(CertificateError.UNEXPECTED_ERROR);
       }
 
       return success(entity);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao atualizar certidão';
       this.logger.error('Erro crítico ao atualizar certidão', { error: errorMessage, id });
       return failure(CertificateError.DATABASE_ERROR);
     }
@@ -346,283 +274,114 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
 
       return success(undefined);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao deletar certidão';
       this.logger.error('Erro crítico ao deletar certidão', { error: errorMessage, id });
       return failure(CertificateError.DATABASE_ERROR);
     }
   }
 
   /**
-   * Resolve o ID do tipo de certidão pelo nome
+   * Mapeia linha do banco tipada para CertificateRow (compatibilidade com mapper)
    */
-  private async resolveCertificateTypeId(
-    certificateType: string,
-  ): Promise<Result<string>> {
-    const normalizedType = certificateType.trim();
-
-    for (const table of CERTIFICATE_TYPE_TABLES) {
-      const { data, error } = await this.supabaseClient
-        .from(table)
-        .select('id')
-        .ilike('name', normalizedType)
-        .maybeSingle<CertificateTypeRow>();
-
-      if (error) {
-        if (this.isMissingRelationError(error.message)) {
-          continue;
-        }
-        this.logger.error('Erro ao buscar tipo de certidão', {
-          error: error.message,
-          certificateType: normalizedType,
-          table,
-        });
-        return failure(CertificateError.DATABASE_ERROR);
-      }
-
-      if (data) {
-        return success(data.id);
-      }
-
-      const { data: insertedData, error: insertError } = await this.supabaseClient
-        .from(table)
-        .insert({ name: normalizedType })
-        .select('id')
-        .single<CertificateTypeRow>();
-
-      if (insertError || !insertedData) {
-        if (insertError && this.isMissingRelationError(insertError.message)) {
-          continue;
-        }
-        this.logger.error('Erro ao criar tipo de certidão', {
-          error: insertError?.message,
-          certificateType: normalizedType,
-          table,
-        });
-        return failure(CertificateError.DATABASE_ERROR);
-      }
-
-      return success(insertedData.id);
-    }
-
-    this.logger.error('Tabela de tipos de certidão não encontrada', {
-      certificateType: normalizedType,
-    });
-    return failure(CertificateError.INVALID_CERTIFICATE_TYPE);
+  private mapDatabaseRowToCertificateRow(row: Tables<'certificates'>): CertificateRow {
+    return {
+      id: row.id,
+      user_id: row.user_id,
+      certificate_type_id: row.certificate_type_id ?? undefined,
+      record_number: row.record_number,
+      party_names: row.party_names ?? undefined,
+      observations: row.observations,
+      priority: row.priority,
+      status: row.status,
+      cost: row.cost,
+      additional_cost: row.additional_cost,
+      order_number: row.order_number,
+      payment_date: row.payment_date,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    };
   }
 
   /**
-   * Busca nomes de tipos de certidão por IDs
+   * Constrói objeto para inserção no banco
    */
-  private async fetchCertificateTypeNameMap(
-    ids: string[],
-  ): Promise<Map<string, string>> {
-    if (ids.length === 0) {
-      return new Map();
-    }
-
-    for (const table of CERTIFICATE_TYPE_TABLES) {
-      const { data, error } = await this.supabaseClient
-        .from(table)
-        .select('id,name')
-        .in('id', ids);
-
-      if (error) {
-        if (this.isMissingRelationError(error.message)) {
-          continue;
-        }
-        this.logger.error('Erro ao buscar tipos de certidão', {
-          error: error.message,
-          table,
-        });
-        return new Map();
-      }
-
-      const map = new Map<string, string>();
-      (data as CertificateTypeRow[]).forEach((row) => {
-        map.set(row.id, row.name);
-      });
-
-      return map;
-    }
-
-    return new Map();
+  private buildInsertData(
+    data: CreateCertificateData,
+    certificateTypeId: string,
+  ): TablesInsert<'certificates'> {
+    return {
+      user_id: data.userId,
+      certificate_type_id: certificateTypeId,
+      record_number: data.recordNumber,
+      party_names: data.partiesName ? [data.partiesName] : null,
+      observations: data.notes ?? null,
+      priority: this.mapper.mapPriorityToDb(data.priority ?? 'normal'),
+    };
   }
 
   /**
-   * Resolve o nome do tipo de certidão para uso no DTO
+   * Constrói objeto para atualização no banco
    */
-  private resolveCertificateTypeName(
-    row: CertificateRow,
-    typeNameMap: Map<string, string>,
-  ): string {
-    if (row.certificate_type) {
-      return row.certificate_type;
-    }
+  private async buildUpdateData(
+    data: UpdateCertificateData,
+  ): Promise<Result<TablesUpdate<'certificates'>>> {
+    const updateData: TablesUpdate<'certificates'> = {};
 
-    if (row.certificate_type_id) {
-      return typeNameMap.get(row.certificate_type_id) ?? row.certificate_type_id;
-    }
+    if (data.certificateType !== undefined) {
+      const typeIdResult = await this.typeResolver.resolveTypeId(data.certificateType);
 
-    return '';
-  }
-
-  private mapPriorityToDb(priority: CertificatePriorityType): number {
-    return PRIORITY_TO_DB[priority] ?? PRIORITY_TO_DB.normal;
-  }
-
-  private mapPriorityFromDb(
-    priority: CertificateRow['priority'],
-  ): CertificatePriorityType {
-    if (priority === 'urgent' || priority === 'normal') {
-      return priority;
-    }
-
-    if (typeof priority === 'number') {
-      return priority >= PRIORITY_TO_DB.urgent ? 'urgent' : 'normal';
-    }
-
-    return 'normal';
-  }
-
-  private resolvePartiesName(row: CertificateRow): string {
-    const value = row.parties_name ?? row.parties_names ?? row.party_names;
-    if (!value) {
-      return '';
-    }
-
-    if (Array.isArray(value)) {
-      return value.join(', ');
-    }
-
-    return value;
-  }
-
-  private resolveNotes(row: CertificateRow): string | null {
-    return row.notes ?? row.observations ?? null;
-  }
-
-  private normalizeSearchValue(value: string): string {
-    return value.replace(/[{},()]/g, ' ').replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
-  }
-
-  private formatArraySearchValue(value: string): string {
-    const escaped = value.replace(/"/g, '\\"');
-    return `"${escaped}"`;
-  }
-
-  private async findCertificateTypeIdsBySearch(search: string): Promise<string[]> {
-    const queryValue = `%${search}%`;
-
-    for (const table of CERTIFICATE_TYPE_TABLES) {
-      const { data, error } = await this.supabaseClient
-        .from(table)
-        .select('id')
-        .ilike('name', queryValue);
-
-      if (error) {
-        if (this.isMissingRelationError(error.message)) {
-          continue;
-        }
-
-        this.logger.error('Erro ao buscar tipos de certidão para pesquisa', {
-          error: error.message,
-          search,
-          table,
-        });
-        return [];
+      if (!typeIdResult.success) {
+        return failure(typeIdResult.error);
       }
 
-      const rows = data as CertificateTypeRow[];
-      if (rows && rows.length > 0) {
-        return rows.map((row) => row.id);
-      }
+      updateData.certificate_type_id = typeIdResult.data;
     }
 
-    return [];
-  }
-
-  private formatPartyNames(value: unknown): string[] {
-    if (typeof value !== 'string') {
-      return [];
+    if (data.recordNumber !== undefined) {
+      updateData.record_number = data.recordNumber;
     }
 
-    return value
-      .split(/[,;\n]+/)
-      .map((name) => name.trim())
-      .filter((name) => name.length > 0);
-  }
-
-  private isArrayLiteralError(message?: string): boolean {
-    if (!message) {
-      return false;
+    if (data.partiesName !== undefined) {
+      updateData.party_names = data.partiesName ? [data.partiesName] : null;
     }
 
-    const normalized = message.toLowerCase();
-    return normalized.includes('array literal') || normalized.includes('array');
-  }
-
-  private isMissingRelationError(message?: string): boolean {
-    if (!message) {
-      return false;
+    if (data.notes !== undefined) {
+      updateData.observations = data.notes;
     }
 
-    const normalized = message.toLowerCase();
-    return (
-      normalized.includes('schema cache') ||
-      normalized.includes('relation') ||
-      normalized.includes('does not exist')
-    );
+    if (data.priority !== undefined) {
+      updateData.priority = this.mapper.mapPriorityToDb(data.priority);
+    }
+
+    if (data.status !== undefined) {
+      updateData.status = data.status;
+    }
+
+    if (data.cost !== undefined) {
+      updateData.cost = data.cost;
+    }
+
+    if (data.additionalCost !== undefined) {
+      updateData.additional_cost = data.additionalCost;
+    }
+
+    if (data.orderNumber !== undefined) {
+      updateData.order_number = data.orderNumber;
+    }
+
+    if (data.paymentDate !== undefined) {
+      updateData.payment_date = data.paymentDate.toISOString().split('T')[0];
+    }
+
+    return success(updateData);
   }
 
   /**
-   * Mapeia row do banco para entidade de domínio
+   * Extrai IDs de tipo das linhas
    */
-  private mapToEntity(
-    row: CertificateRow,
-    certificateTypeName?: string,
-  ): CertificateEntity | null {
-    try {
-      const statusValue = row.status ?? DEFAULT_STATUS;
-      const statusResult = CertificateStatusValueObject.create(statusValue);
-      if (!statusResult.success) {
-        this.logger.error('Status inválido no banco', { status: statusValue, id: row.id });
-        return null;
-      }
-
-      const priorityValue = this.mapPriorityFromDb(row.priority);
-      const priorityResult = CertificatePriorityValueObject.create(priorityValue);
-      if (!priorityResult.success) {
-        this.logger.error('Prioridade inválida no banco', {
-          priority: priorityValue,
-          id: row.id,
-        });
-        return null;
-      }
-
-      return CertificateEntity.create({
-        id: row.id,
-        userId: row.user_id,
-        certificateType:
-          certificateTypeName ?? this.resolveCertificateTypeName(row, new Map()),
-        recordNumber: row.record_number,
-        partiesName: this.resolvePartiesName(row),
-        notes: this.resolveNotes(row),
-        priority: priorityResult.data,
-        status: statusResult.data,
-        cost: row.cost ?? null,
-        additionalCost: row.additional_cost ?? null,
-        orderNumber: row.order_number ?? null,
-        paymentDate: row.payment_date ? new Date(row.payment_date) : null,
-        createdAt: new Date(row.created_at),
-        updatedAt: new Date(row.updated_at),
-      });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      this.logger.error('Erro ao mapear certidão para entidade', {
-        error: errorMessage,
-        id: row.id,
-      });
-      return null;
-    }
+  private extractTypeIds(rows: CertificateRow[]): string[] {
+    return rows
+      .map((row) => row.certificate_type_id)
+      .filter((value): value is string => Boolean(value));
   }
 }
