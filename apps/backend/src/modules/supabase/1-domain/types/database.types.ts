@@ -138,6 +138,30 @@ export interface Database {
         };
         Relationships: [];
       };
+      certificates_type: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          created_at: string;
+          is_active: boolean | null;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          created_at?: string;
+          is_active?: boolean | null;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          created_at?: string;
+          is_active?: boolean | null;
+        };
+        Relationships: [];
+      };
       certificate_events: {
         Row: {
           id: string;
@@ -169,6 +193,93 @@ export interface Database {
             columns: ['certificate_id'];
             isOneToOne: false;
             referencedRelation: 'certificates';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      payment_type: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          enabled: boolean | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          enabled?: boolean | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          enabled?: boolean | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      certificate_tags: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          color: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          color?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          color?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      certificate_tag_assignments: {
+        Row: {
+          id: string;
+          certificate_id: string;
+          tag_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          certificate_id: string;
+          tag_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          certificate_id?: string;
+          tag_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'certificate_tag_assignments_certificate_id_fkey';
+            columns: ['certificate_id'];
+            isOneToOne: false;
+            referencedRelation: 'certificates';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'certificate_tag_assignments_tag_id_fkey';
+            columns: ['tag_id'];
+            isOneToOne: false;
+            referencedRelation: 'certificate_tags';
             referencedColumns: ['id'];
           },
         ];

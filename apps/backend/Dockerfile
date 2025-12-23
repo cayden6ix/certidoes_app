@@ -18,6 +18,9 @@ COPY tsconfig.base.json ./
 
 WORKDIR /app/apps/backend
 
+# Gera build inicial para garantir dist/main antes do watch
+RUN npm run build
+
 # Expõe a porta do backend
 EXPOSE 3000
 

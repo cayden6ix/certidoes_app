@@ -49,6 +49,10 @@ export async function apiClient<T>(
       };
     }
 
+    if (response.status === 204) {
+      return { data: null as T, error: null };
+    }
+
     const contentType = response.headers.get('content-type');
     if (!contentType?.includes('application/json')) {
       return {
@@ -297,5 +301,303 @@ export async function updateCertificate(
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(data),
+  });
+}
+
+// ============ ADMIN API ============
+
+export interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface AdminUser {
+  id: string;
+  fullName: string;
+  email: string;
+  role: 'client' | 'admin';
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface PaymentType {
+  id: string;
+  name: string;
+  description: string | null;
+  enabled: boolean;
+  createdAt: string;
+}
+
+export interface CertificateCatalogType {
+  id: string;
+  name: string;
+  description: string | null;
+  isActive?: boolean | null;
+  createdAt: string;
+}
+
+export interface CertificateTag {
+  id: string;
+  name: string;
+  description: string | null;
+  color: string | null;
+  createdBy: string | null;
+  createdAt: string;
+}
+
+export interface ListAdminParams {
+  search?: string;
+  page?: number;
+  pageSize?: number;
+  limit?: number;
+  offset?: number;
+}
+
+export interface CreateAdminUserRequest {
+  fullName: string;
+  email: string;
+  password: string;
+  role?: 'client' | 'admin';
+}
+
+export interface UpdateAdminUserRequest {
+  fullName?: string;
+  email?: string;
+  password?: string;
+  role?: 'client' | 'admin';
+}
+
+export async function listAdminUsers(
+  token: string,
+  params?: ListAdminParams,
+): Promise<ApiResponse<PaginatedResult<AdminUser>>> {
+  const queryParams = new URLSearchParams();
+  if (params?.search) queryParams.append('search', params.search);
+  if (params?.page) queryParams.append('page', params.page.toString());
+  if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
+  if (params?.limit) queryParams.append('limit', params.limit.toString());
+  if (params?.offset) queryParams.append('offset', params.offset.toString());
+
+  const queryString = queryParams.toString();
+  const endpoint = queryString ? `/admin/users?${queryString}` : '/admin/users';
+
+  return apiClient<PaginatedResult<AdminUser>>(endpoint, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function createAdminUser(
+  token: string,
+  payload: CreateAdminUserRequest,
+): Promise<ApiResponse<AdminUser>> {
+  return apiClient<AdminUser>('/admin/users', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateAdminUser(
+  token: string,
+  id: string,
+  payload: UpdateAdminUserRequest,
+): Promise<ApiResponse<AdminUser>> {
+  return apiClient<AdminUser>(`/admin/users/${id}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteAdminUser(token: string, id: string): Promise<ApiResponse<void>> {
+  return apiClient<void>(`/admin/users/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export interface CreatePaymentTypeRequest {
+  name: string;
+  description?: string | null;
+  enabled?: boolean;
+}
+
+export type UpdatePaymentTypeRequest = CreatePaymentTypeRequest;
+
+export async function listPaymentTypes(
+  token: string,
+  params?: ListAdminParams,
+): Promise<ApiResponse<PaginatedResult<PaymentType>>> {
+  const queryParams = new URLSearchParams();
+  if (params?.search) queryParams.append('search', params.search);
+  if (params?.page) queryParams.append('page', params.page.toString());
+  if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
+  if (params?.limit) queryParams.append('limit', params.limit.toString());
+  if (params?.offset) queryParams.append('offset', params.offset.toString());
+
+  const queryString = queryParams.toString();
+  const endpoint = queryString ? `/admin/payment-types?${queryString}` : '/admin/payment-types';
+
+  return apiClient<PaginatedResult<PaymentType>>(endpoint, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function createPaymentType(
+  token: string,
+  payload: CreatePaymentTypeRequest,
+): Promise<ApiResponse<PaymentType>> {
+  return apiClient<PaymentType>('/admin/payment-types', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updatePaymentType(
+  token: string,
+  id: string,
+  payload: UpdatePaymentTypeRequest,
+): Promise<ApiResponse<PaymentType>> {
+  return apiClient<PaymentType>(`/admin/payment-types/${id}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deletePaymentType(
+  token: string,
+  id: string,
+): Promise<ApiResponse<void>> {
+  return apiClient<void>(`/admin/payment-types/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export interface CreateCertificateTypeRequest {
+  name: string;
+  description?: string | null;
+  isActive?: boolean;
+}
+
+export type UpdateCertificateTypeRequest = CreateCertificateTypeRequest;
+
+export async function listCertificateTypesAdmin(
+  token: string,
+  params?: ListAdminParams,
+): Promise<ApiResponse<PaginatedResult<CertificateCatalogType>>> {
+  const queryParams = new URLSearchParams();
+  if (params?.search) queryParams.append('search', params.search);
+  if (params?.page) queryParams.append('page', params.page.toString());
+  if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
+  if (params?.limit) queryParams.append('limit', params.limit.toString());
+  if (params?.offset) queryParams.append('offset', params.offset.toString());
+
+  const queryString = queryParams.toString();
+  const endpoint = queryString
+    ? `/admin/certificate-types?${queryString}`
+    : '/admin/certificate-types';
+
+  return apiClient<PaginatedResult<CertificateCatalogType>>(endpoint, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function createCertificateType(
+  token: string,
+  payload: CreateCertificateTypeRequest,
+): Promise<ApiResponse<CertificateCatalogType>> {
+  return apiClient<CertificateCatalogType>('/admin/certificate-types', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateCertificateType(
+  token: string,
+  id: string,
+  payload: UpdateCertificateTypeRequest,
+): Promise<ApiResponse<CertificateCatalogType>> {
+  return apiClient<CertificateCatalogType>(`/admin/certificate-types/${id}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteCertificateType(
+  token: string,
+  id: string,
+): Promise<ApiResponse<void>> {
+  return apiClient<void>(`/admin/certificate-types/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export interface CreateTagRequest {
+  name: string;
+  description?: string | null;
+  color?: string | null;
+}
+
+export type UpdateTagRequest = CreateTagRequest;
+
+export async function listCertificateTags(
+  token: string,
+  params?: ListAdminParams,
+): Promise<ApiResponse<PaginatedResult<CertificateTag>>> {
+  const queryParams = new URLSearchParams();
+  if (params?.search) queryParams.append('search', params.search);
+  if (params?.page) queryParams.append('page', params.page.toString());
+  if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
+  if (params?.limit) queryParams.append('limit', params.limit.toString());
+  if (params?.offset) queryParams.append('offset', params.offset.toString());
+
+  const queryString = queryParams.toString();
+  const endpoint = queryString
+    ? `/admin/certificate-tags?${queryString}`
+    : '/admin/certificate-tags';
+
+  return apiClient<PaginatedResult<CertificateTag>>(endpoint, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function createCertificateTag(
+  token: string,
+  payload: CreateTagRequest,
+): Promise<ApiResponse<CertificateTag>> {
+  return apiClient<CertificateTag>('/admin/certificate-tags', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateCertificateTag(
+  token: string,
+  id: string,
+  payload: UpdateTagRequest,
+): Promise<ApiResponse<CertificateTag>> {
+  return apiClient<CertificateTag>(`/admin/certificate-tags/${id}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteCertificateTag(
+  token: string,
+  id: string,
+): Promise<ApiResponse<void>> {
+  return apiClient<void>(`/admin/certificate-tags/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
   });
 }

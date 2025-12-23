@@ -1,0 +1,33 @@
+import { Module } from '@nestjs/common';
+
+import { AuthModule } from '../auth/auth.module';
+import { SupabaseModule } from '../supabase/supabase.module';
+import { AdminUsersController } from './3-interface-adapters/web-controllers/admin-users.controller';
+import { PaymentTypesController } from './3-interface-adapters/web-controllers/payment-types.controller';
+import { CertificateTypesController } from './3-interface-adapters/web-controllers/certificate-types.controller';
+import { CertificateTagsController } from './3-interface-adapters/web-controllers/certificate-tags.controller';
+import { AdminUsersService } from './2-application/services/admin-users.service';
+import { PaymentTypesService } from './2-application/services/payment-types.service';
+import { CertificateTypesService } from './2-application/services/certificate-types.service';
+import { CertificateTagsService } from './2-application/services/certificate-tags.service';
+
+/**
+ * Módulo administrativo
+ * Centraliza os recursos de gestão para admins (usuários, pagamentos, tipos e tags)
+ */
+@Module({
+  imports: [AuthModule, SupabaseModule],
+  controllers: [
+    AdminUsersController,
+    PaymentTypesController,
+    CertificateTypesController,
+    CertificateTagsController,
+  ],
+  providers: [
+    AdminUsersService,
+    PaymentTypesService,
+    CertificateTypesService,
+    CertificateTagsService,
+  ],
+})
+export class AdminModule {}

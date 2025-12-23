@@ -2,7 +2,13 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute, PublicOnlyRoute } from './components/ProtectedRoute';
-import { LoginPage, DashboardPage, RequestCertificatePage, CertificateDetailPage } from './pages';
+import {
+  LoginPage,
+  DashboardPage,
+  RequestCertificatePage,
+  CertificateDetailPage,
+  AdminDashboardPage,
+} from './pages';
 
 /**
  * Componente principal da aplicação
@@ -53,7 +59,7 @@ function App(): JSX.Element {
           path="/admin/dashboard"
           element={
             <ProtectedRoute allowedRoles={['admin']}>
-              <DashboardPage />
+              <AdminDashboardPage />
             </ProtectedRoute>
           }
         />
