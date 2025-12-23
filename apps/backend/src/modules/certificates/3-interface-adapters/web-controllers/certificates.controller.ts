@@ -115,11 +115,23 @@ export class CertificatesController {
       filters: query,
     });
 
+    const pageSize = query.pageSize ?? query.limit ?? 50;
+    const page =
+      query.page ?? (query.offset !== undefined ? Math.floor(query.offset / pageSize) + 1 : 1);
+    const limit = query.page !== undefined || query.pageSize !== undefined ? pageSize : query.limit;
+    const offset =
+      query.page !== undefined || query.pageSize !== undefined
+        ? (page - 1) * pageSize
+        : query.offset;
+
     const request = new ListCertificatesRequestDto(user.userId, user.role, {
+      search: query.search,
+      from: query.from,
+      to: query.to,
       status: query.status,
       priority: query.priority,
-      limit: query.limit,
-      offset: query.offset,
+      limit,
+      offset,
     });
 
     const result = await this.listCertificatesUseCase.execute(request);

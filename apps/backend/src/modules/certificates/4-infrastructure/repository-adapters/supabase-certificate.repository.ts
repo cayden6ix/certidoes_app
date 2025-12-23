@@ -173,12 +173,35 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
       if (options.userId) {
         query = query.eq('user_id', options.userId);
       }
+      if (options.from) {
+        query = query.gte('created_at', options.from);
+      }
+      if (options.to) {
+        query = query.lte('created_at', options.to);
+      }
       if (options.status) {
         query = query.eq('status', options.status);
       }
       if (options.priority) {
         const priorityValue = options.priority === 'urgent' ? 'urgent' : 'normal';
         query = query.eq('priority', this.mapPriorityToDb(priorityValue));
+      }
+      if (options.search) {
+        const searchValue = this.normalizeSearchValue(options.search);
+        if (searchValue) {
+          const typeIds = await this.findCertificateTypeIdsBySearch(searchValue);
+          const searchConditions = [
+            `record_number.ilike.%${searchValue}%`,
+            `order_number.ilike.%${searchValue}%`,
+            `party_names.cs.{${this.formatArraySearchValue(searchValue)}}`,
+          ];
+
+          if (typeIds.length > 0) {
+            searchConditions.push(`certificate_type_id.in.(${typeIds.join(',')})`);
+          }
+
+          query = query.or(searchConditions.join(','));
+        }
       }
 
       // Aplica paginação
@@ -477,6 +500,46 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
 
   private resolveNotes(row: CertificateRow): string | null {
     return row.notes ?? row.observations ?? null;
+  }
+
+  private normalizeSearchValue(value: string): string {
+    return value.replace(/[{},()]/g, ' ').replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  private formatArraySearchValue(value: string): string {
+    const escaped = value.replace(/"/g, '\\"');
+    return `"${escaped}"`;
+  }
+
+  private async findCertificateTypeIdsBySearch(search: string): Promise<string[]> {
+    const queryValue = `%${search}%`;
+
+    for (const table of CERTIFICATE_TYPE_TABLES) {
+      const { data, error } = await this.supabaseClient
+        .from(table)
+        .select('id')
+        .ilike('name', queryValue);
+
+      if (error) {
+        if (this.isMissingRelationError(error.message)) {
+          continue;
+        }
+
+        this.logger.error('Erro ao buscar tipos de certidão para pesquisa', {
+          error: error.message,
+          search,
+          table,
+        });
+        return [];
+      }
+
+      const rows = data as CertificateTypeRow[];
+      if (rows && rows.length > 0) {
+        return rows.map((row) => row.id);
+      }
+    }
+
+    return [];
   }
 
   private formatPartyNames(value: unknown): string[] {

@@ -35,6 +35,9 @@ export class ListCertificatesUseCase {
 
     const result = await this.certificateRepository.findAll({
       userId: userIdFilter,
+      search: request.filters.search,
+      from: request.filters.from,
+      to: request.filters.to,
       status: request.filters.status,
       priority: request.filters.priority,
       limit: request.filters.limit ?? 50,

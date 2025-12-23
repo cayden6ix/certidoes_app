@@ -189,8 +189,13 @@ export interface UpdateCertificateRequest {
 }
 
 export interface ListCertificatesParams {
+  search?: string;
+  from?: string;
+  to?: string;
   status?: string;
   priority?: string;
+  page?: number;
+  pageSize?: number;
   limit?: number;
   offset?: number;
 }
@@ -220,8 +225,13 @@ export async function listCertificates(
 ): Promise<ApiResponse<PaginatedCertificates>> {
   const queryParams = new URLSearchParams();
 
+  if (params?.search) queryParams.append('search', params.search);
+  if (params?.from) queryParams.append('from', params.from);
+  if (params?.to) queryParams.append('to', params.to);
   if (params?.status) queryParams.append('status', params.status);
   if (params?.priority) queryParams.append('priority', params.priority);
+  if (params?.page) queryParams.append('page', params.page.toString());
+  if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
   if (params?.limit) queryParams.append('limit', params.limit.toString());
   if (params?.offset) queryParams.append('offset', params.offset.toString());
 

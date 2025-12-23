@@ -34,6 +34,9 @@ export interface UpdateCertificateData {
  */
 export interface ListCertificatesOptions {
   userId?: string;
+  search?: string;
+  from?: string;
+  to?: string;
   status?: string;
   priority?: string;
   limit?: number;

@@ -1,4 +1,4 @@
-import { IsOptional, IsIn, IsInt, Min, Max } from 'class-validator';
+import { IsOptional, IsIn, IsInt, Min, Max, IsString, IsDateString } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 /**
@@ -6,6 +6,18 @@ import { Transform } from 'class-transformer';
  * Validado com class-validator
  */
 export class ListCertificatesQueryDto {
+  @IsOptional()
+  @IsString({ message: 'Busca deve ser uma string' })
+  search?: string;
+
+  @IsOptional()
+  @IsDateString({}, { message: 'Data inicial deve ser uma data válida (ISO 8601)' })
+  from?: string;
+
+  @IsOptional()
+  @IsDateString({}, { message: 'Data final deve ser uma data válida (ISO 8601)' })
+  to?: string;
+
   @IsOptional()
   @IsIn(['pending', 'in_progress', 'completed', 'canceled'], {
     message: 'Status deve ser "pending", "in_progress", "completed" ou "canceled"',
@@ -15,6 +27,19 @@ export class ListCertificatesQueryDto {
   @IsOptional()
   @IsIn(['normal', 'urgent'], { message: 'Prioridade deve ser "normal" ou "urgent"' })
   priority?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => (value ? parseInt(value, 10) : undefined))
+  @IsInt({ message: 'Página deve ser um número inteiro' })
+  @Min(1, { message: 'Página mínima é 1' })
+  page?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => (value ? parseInt(value, 10) : undefined))
+  @IsInt({ message: 'PageSize deve ser um número inteiro' })
+  @Min(1, { message: 'PageSize mínimo é 1' })
+  @Max(100, { message: 'PageSize máximo é 100' })
+  pageSize?: number;
 
   @IsOptional()
   @Transform(({ value }) => (value ? parseInt(value, 10) : undefined))

@@ -7,6 +7,9 @@ export class ListCertificatesRequestDto {
     public readonly userId: string,
     public readonly userRole: 'client' | 'admin',
     public readonly filters: {
+      search?: string;
+      from?: string;
+      to?: string;
       status?: string;
       priority?: string;
       limit?: number;
