@@ -17,7 +17,7 @@ Implementar a **base funcional de dados e autenticação**, garantindo:
 ### Tarefas
 Criar as tabelas principais no schema `public`:
 
-### 1.1 Tabela `profiles`
+### 1.1 Tabela `profiles` [x]
 Tabela espelho do `auth.users`.
 
 Campos:
@@ -28,7 +28,7 @@ Campos:
 - `created_at` (timestamp)
 - `updated_at` (timestamp)
 
-### 1.2 Tabela `certificates`
+### 1.2 Tabela `certificates` [x]
 Representa a certidão solicitada.
 
 Campos:
@@ -47,7 +47,7 @@ Campos:
 - `created_at` (timestamp)
 - `updated_at` (timestamp)
 
-### 1.3 Enums
+### 1.3 Enums [x]
 Criar enums no Supabase:
 - `user_role`
 - `certificate_priority`
@@ -87,12 +87,12 @@ Ativar RLS em todas as tabelas sensíveis.
 
 ## 3) Supabase Auth — configuração e fluxo
 ### Tarefas
-- Configurar Supabase Auth:
+- [x] Configurar Supabase Auth:
   - Email + senha
   - Confirmação por email (opcional)
-- Criar trigger para:
+- [x] Criar trigger para:
   - Criar registro automático em `profiles` após `auth.users` insert
-- Definir role default como `client`
+- [x] Definir role default como `client`
 - Criar usuário admin manualmente (script ou painel Supabase)
 
 ### Critérios de aceite
@@ -104,13 +104,13 @@ Ativar RLS em todas as tabelas sensíveis.
 
 ## 4) Backend (NestJS) — integração com Supabase Auth
 ### Tarefas
-- Criar `SupabaseModule`:
+- [x] Criar `SupabaseModule`:
   - Cliente com `SERVICE_ROLE_KEY`
-- Criar `AuthModule` funcional:
+- [x] Criar `AuthModule` funcional:
   - Guard de autenticação (`JwtGuard` Supabase)
   - Decorator `@CurrentUser()`
-- Validar JWT do Supabase em todas as rotas protegidas
-- Criar `RolesGuard`:
+- [x] Validar JWT do Supabase em todas as rotas protegidas
+- [x] Criar `RolesGuard`:
   - `@Roles('admin')`
   - `@Roles('client')`
 
@@ -123,15 +123,15 @@ Ativar RLS em todas as tabelas sensíveis.
 
 ## 5) Backend — primeiros endpoints protegidos
 ### Tarefas
-Criar módulo `CertificatesModule`.
+- [x] Criar módulo `CertificatesModule`.
 
 Endpoints iniciais:
-- `POST /api/certificates`
+- [x] `POST /api/certificates`
   - Cliente cria solicitação
-- `GET /api/certificates`
+- [x] `GET /api/certificates`
   - Cliente: lista apenas suas certidões
   - Admin: lista todas
-- `GET /api/certificates/:id`
+- [x] `GET /api/certificates/:id`
   - Cliente: apenas se for dono
   - Admin: acesso total
 
@@ -148,15 +148,15 @@ Validações:
 
 ## 6) Frontend — Auth e proteção de rotas
 ### Tarefas
-- Implementar login com Supabase Auth
-- Criar `AuthContext`:
+- [x] Implementar login com Supabase Auth
+- [x] Criar `AuthContext`:
   - `user`
   - `session`
   - `role`
-- Proteger rotas:
+- [x] Proteger rotas:
   - Cliente: `/request-certificate`, `/dashboard`
   - Admin: `/admin/dashboard`
-- Redirecionamento automático:
+- [x] Redirecionamento automático:
   - Admin → dashboard admin
   - Cliente → dashboard cliente
 
@@ -169,12 +169,12 @@ Validações:
 
 ## 7) Frontend — integração inicial com backend
 ### Tarefas
-- Criar client HTTP (fetch/axios) com:
+- [x] Criar client HTTP (fetch/axios) com:
   - Interceptor de token Supabase
-- Implementar:
+- [x] Implementar:
   - Criar certidão (POST)
   - Listar certidões (GET)
-- Mostrar apenas dados permitidos por role
+- [x] Mostrar apenas dados permitidos por role
 
 ### Critérios de aceite
 - Certidões criadas corretamente pelo cliente.

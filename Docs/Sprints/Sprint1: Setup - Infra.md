@@ -13,7 +13,7 @@ Entregar a base do projeto pronta para desenvolvimento:
 
 ## 1) Repositório e estrutura base
 ### Tarefas
-- Criar repositório (monorepo) e estrutura inicial:
+- [x] Criar repositório (monorepo) e estrutura inicial:
 certidoes/
 apps/
 backend/ (NestJS)
@@ -26,7 +26,7 @@ nginx/ (opcional)
 docker-compose.yml
 .env.example
 README.md
-- Definir convenções de pastas e nomes de apps.
+- [x] Definir convenções de pastas e nomes de apps.
 
 ### Critérios de aceite
 - Projeto sobe via Docker (frontend + backend).
@@ -51,16 +51,16 @@ README.md
 
 ## 3) Backend (NestJS) — bootstrap inicial
 ### Tarefas
-- Criar NestJS em `apps/backend`.
-- Instalar dependências mínimas:
+- [x] Criar NestJS em `apps/backend`.
+- [x] Instalar dependências mínimas:
 - `@nestjs/config` (env)
 - `class-validator` + `class-transformer`
 - Logger (`pino` ou `winston`)
 - (Opcional) `zod` para validações compartilhadas
-- Criar módulos base:
+- [x] Criar módulos base:
 - `HealthModule` (GET `/api/health`)
 - `AuthModule` (placeholder; pensando Supabase Auth)
-- Configurar prefixo global `/api`:
+- [x] Configurar prefixo global `/api`:
 - `app.setGlobalPrefix('api')`
 
 ### Critérios de aceite
@@ -70,17 +70,17 @@ README.md
 
 ## 4) Frontend (React + Vite + Tailwind) — bootstrap inicial
 ### Tarefas
-- Criar React com Vite em `apps/frontend`.
-- Instalar e configurar Tailwind.
-- Instalar:
+- [x] Criar React com Vite em `apps/frontend`.
+- [x] Instalar e configurar Tailwind.
+- [x] Instalar:
 - `react-router-dom`
 - `@supabase/supabase-js`
 - (Opcional) UI kit: shadcn/ui ou headless + tailwind
-- Criar páginas placeholders:
+- [x] Criar páginas placeholders:
 - `/login`
 - `/request-certificate` (request_certificate.tsx)
 - `/dashboard` (dashboard.tsx)
-- Criar layout base (Navbar/Sidebar simples).
+- [x] Criar layout base (Navbar/Sidebar simples).
 
 ### Critérios de aceite
 - Frontend sobe via Docker e abre em `http://localhost:<porta>`.
@@ -90,8 +90,8 @@ README.md
 
 ## 5) Supabase — criação do projeto, schema inicial e acesso
 ### Tarefas
-- Criar projeto no Supabase (cloud) **ou** preparar Supabase local via CLI.
-- Definir variáveis:
+- [x] Criar projeto no Supabase (cloud) **ou** preparar Supabase local via CLI.
+- [x] Definir variáveis:
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY` (somente backend)
@@ -112,22 +112,22 @@ README.md
 
 ## 6) Dockerização — dev environment com hot reload
 ### Tarefas
-- Criar `Dockerfile` do backend (DEV):
+- [x] Criar `Dockerfile` do backend (DEV):
 - Node + deps
 - volume para código
 - `npm run start:dev`
-- Criar `Dockerfile` do frontend (DEV):
+- [x] Criar `Dockerfile` do frontend (DEV):
 - Node + deps
 - volume para código
 - `npm run dev -- --host 0.0.0.0`
-- Criar `docker-compose.yml` com:
+- [x] Criar `docker-compose.yml` com:
 - `backend`
 - `frontend`
 - (Opcional) stack supabase local
-- Padronizar portas:
+- [x] Padronizar portas:
 - Frontend: `5173`
 - Backend: `3000`
-- Configurar comunicação:
+- [x] Configurar comunicação:
 - Em dev: frontend chama `http://localhost:3000/api`
 - (Recomendado) Proxy do Vite para `/api` → `backend:3000`
 
@@ -140,13 +140,13 @@ README.md
 
 ## 7) Configuração de ambientes e segurança de secrets
 ### Tarefas
-- Criar:
+- [x] Criar:
 - `.env.example` (na raiz)
 - `.env` local (não versionar)
-- Separar env do backend e frontend:
+- [x] Separar env do backend e frontend:
 - Frontend só pode ter `VITE_*`
 - Backend guarda `SUPABASE_SERVICE_ROLE_KEY`
-- Padronizar nomes:
+- [x] Padronizar nomes:
 - `BACKEND_PORT=3000`
 - `FRONTEND_PORT=5173`
 - `SUPABASE_URL=...`
@@ -162,10 +162,10 @@ README.md
 
 ## 8) Prova de vida (integração mínima)
 ### Tarefas
-- Backend: `GET /api/health` retorna:
+- [x] Backend: `GET /api/health` retorna:
 - `{ "status": "ok", "env": "development" }`
-- Frontend: Dashboard exibe card “API status” consumindo `/api/health`.
-- Backend com log estruturado (startup + request).
+- [x] Frontend: Dashboard exibe card “API status” consumindo `/api/health`.
+- [x] Backend com log estruturado (startup + request).
 
 ### Critérios de aceite
 - Após `docker compose up`, dashboard mostra “API ok”.

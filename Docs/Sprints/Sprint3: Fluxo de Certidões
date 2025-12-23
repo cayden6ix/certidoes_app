@@ -31,7 +31,7 @@ Entregar o **fluxo principal completo** para Cliente e Admin:
 
 ## 1) Banco: suporte a métricas, histórico e batch update (incremental)
 ### 1.1 Ajustes em `certificates` (se necessário)
-- Garantir índices:
+- [x] Garantir índices:
   - `user_id`
   - `status`
   - `created_at`
@@ -39,7 +39,7 @@ Entregar o **fluxo principal completo** para Cliente e Admin:
   - `order_number` (para busca admin)
 - (Opcional) `updated_by` (uuid) e `updated_at` já existem
 
-### 1.2 (Recomendado) Tabela `certificate_events` (histórico/auditoria)
+### 1.2 (Recomendado) Tabela `certificate_events` (histórico/auditoria) [x]
 Campos:
 - `id` (uuid, PK)
 - `certificate_id` (uuid, FK)
@@ -60,12 +60,12 @@ Políticas RLS:
 ---
 
 ## 2) Backend — endpoints completos do fluxo Cliente
-### 2.1 Criar certidão (já existe, reforçar validação)
+### 2.1 Criar certidão (já existe, reforçar validação) [x]
 - `POST /api/certificates`
   - Permite apenas campos do cliente
   - Define defaults: `status=pending`
 
-### 2.2 Listagem do cliente com filtros e paginação
+### 2.2 Listagem do cliente com filtros e paginação [x]
 - `GET /api/certificates?search=&status=&priority=&from=&to=&page=&pageSize=`
 Regras:
 - Cliente só retorna suas certidões (por user_id + RLS + guard)
@@ -79,12 +79,12 @@ Regras:
   - `total`
   - `page`, `pageSize`
 
-### 2.3 Detalhe da certidão
+### 2.3 Detalhe da certidão [x]
 - `GET /api/certificates/:id`
   - Inclui dados principais
   - (Opcional) inclui eventos/histórico: `GET /api/certificates/:id/events`
 
-### 2.4 Edição pelo cliente
+### 2.4 Edição pelo cliente [x]
 - `PATCH /api/certificates/:id`
   - Permite somente campos do cliente
   - Bloqueia se `status != pending` (recomendado)
@@ -144,7 +144,7 @@ Resposta recomendada:
 ---
 
 ## 4) Frontend — Cliente (Request + Dashboard + Detalhe)
-### 4.1 Tela de Solicitação (request_certificate.tsx)
+### 4.1 Tela de Solicitação (request_certificate.tsx) [x]
 Componentes:
 - Select “Tipo de Certidão”
 - Input “n.º da Ficha”
@@ -163,25 +163,25 @@ Critérios de aceite:
 
 ### 4.2 Dashboard do Cliente (dashboard.tsx)
 Funcionalidades:
-- Barra de busca/filtro (search + status + prioridade)
+- [x] Barra de busca/filtro (search + status + prioridade)
 - Cards de estatísticas (do cliente):
   - total, pendentes, em andamento, concluídas (no período padrão: 30 dias ou “tudo”)
-- Lista/tabela de certidões:
+- [x] Lista/tabela de certidões:
   - colunas: `tipo`, `ficha`, `partes`, `prioridade`, `status`, `criado em`, `ações`
 - Ações:
   - “Editar” (somente se status permitir)
-  - “Ver detalhes” (vai para `certificate/:id`)
+  - [x] “Ver detalhes” (vai para `certificate/:id`)
 
 Critérios de aceite:
 - Filtros funcionam e paginação mantém estado.
 - Ações respeitam permissões.
 
-### 4.3 Tela de Detalhe (certificate_<id>.tsx ou route `certificate/:id`)
+### 4.3 Tela de Detalhe (certificate_<id>.tsx ou route `certificate/:id`) [x]
 Conteúdo:
 - Resumo (tipo, ficha, partes, prioridade, status)
 - Observações
 - Campos administrativos (somente leitura para cliente): custo, nº pedido, data pagto (se existirem)
-- Linha do tempo / histórico (se implementado): eventos
+- [x] Linha do tempo / histórico (se implementado): eventos
 
 Critérios de aceite:
 - Carrega rápido, trata 404, trata permissão.
@@ -233,7 +233,7 @@ Critérios de aceite:
 - 1 clique aplica batch update via endpoint.
 - UI mostra claramente o que foi alterado.
 
-### 5.3 Tela de detalhe admin
+### 5.3 Tela de detalhe admin [x]
 - Mesmo layout base do cliente, porém editável:
   - status, custo, pedido, adicional, data pag
 - Mostrar histórico
