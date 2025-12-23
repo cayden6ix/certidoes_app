@@ -27,7 +27,7 @@ export class CertificatePriorityValueObject {
       );
     }
 
-    return success(new CertificatePriorityValueObject(priority as CertificatePriorityType));
+    return success(new CertificatePriorityValueObject(priority));
   }
 
   /**

@@ -48,7 +48,7 @@ export function RequestCertificatePage(): JSX.Element {
       certificateType: formData.certificateType,
       recordNumber: formData.recordNumber,
       partiesName: formData.partiesName,
-      notes: formData.notes || undefined,
+      notes: formData.notes ?? undefined,
       priority: formData.priority,
     });
 
@@ -63,7 +63,7 @@ export function RequestCertificatePage(): JSX.Element {
 
     // Redireciona para o dashboard após 2 segundos
     setTimeout(() => {
-      navigate('/dashboard');
+      void navigate('/dashboard');
     }, 2000);
   };
 
@@ -113,11 +113,7 @@ export function RequestCertificatePage(): JSX.Element {
           {error && (
             <div className="mb-6 rounded-md bg-red-50 p-4">
               <div className="flex">
-                <svg
-                  className="h-5 w-5 text-red-400"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
+                <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
                   <path
                     fillRule="evenodd"
                     d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
@@ -131,10 +127,7 @@ export function RequestCertificatePage(): JSX.Element {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label
-                htmlFor="certificateType"
-                className="block text-sm font-medium text-gray-700"
-              >
+              <label htmlFor="certificateType" className="block text-sm font-medium text-gray-700">
                 Tipo de Certidão <span className="text-red-500">*</span>
               </label>
               <select
@@ -244,11 +237,7 @@ export function RequestCertificatePage(): JSX.Element {
               >
                 {isSubmitting ? (
                   <span className="flex items-center">
-                    <svg
-                      className="mr-2 h-4 w-4 animate-spin"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
+                    <svg className="mr-2 h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
                       <circle
                         className="opacity-25"
                         cx="12"

@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-  Inject,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Inject } from '@nestjs/common';
 import type { CertificateCatalogType } from '@shared/types';
 
 import { CERTIFICATE_TYPE_TABLES } from '../../../certificates/4-infrastructure/repository-adapters/types/certificate-row.types';
@@ -101,7 +96,7 @@ export class CertificateTypesService {
     if (params.name !== undefined) updateData.name = params.name;
     const { data, error } = await this.supabase
       .from(table)
-      .update(updateData as TablesUpdate<'certificate_types'>)
+      .update(updateData)
       .eq('id', id)
       .select('*')
       .single();
@@ -138,7 +133,10 @@ export class CertificateTypesService {
       }
 
       if (!this.isMissingRelationError(error.message)) {
-        this.logger.error('Erro ao tentar resolver tabela de tipos', { error: error.message, table });
+        this.logger.error('Erro ao tentar resolver tabela de tipos', {
+          error: error.message,
+          table,
+        });
         throw new BadRequestException('Erro ao acessar a tabela de tipos de certidão');
       }
     }

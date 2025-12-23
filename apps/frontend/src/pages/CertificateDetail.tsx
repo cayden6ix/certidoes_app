@@ -74,10 +74,13 @@ function normalizeComparable(value: unknown): string {
     try {
       return JSON.stringify(value);
     } catch {
-      return String(value);
+      return '[unserializable]';
     }
   }
-  return String(value);
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return String(value);
+  }
+  return '[unknown]';
 }
 
 function formatValue(value: unknown): string {
@@ -101,7 +104,17 @@ function formatValue(value: unknown): string {
     }
     return trimmed;
   }
-  return String(value);
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return String(value);
+  }
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return '[unserializable]';
+    }
+  }
+  return '[unknown]';
 }
 
 function formatChanges(changes: Record<string, unknown> | null): string[] {
@@ -185,10 +198,7 @@ export function CertificateDetailPage(): JSX.Element {
       if (certificateResult.data) {
         setAdminForm({
           status: certificateResult.data.status,
-          cost:
-            certificateResult.data.cost !== null
-              ? certificateResult.data.cost.toString()
-              : '',
+          cost: certificateResult.data.cost !== null ? certificateResult.data.cost.toString() : '',
           additionalCost:
             certificateResult.data.additionalCost !== null
               ? certificateResult.data.additionalCost.toString()
@@ -289,9 +299,7 @@ export function CertificateDetailPage(): JSX.Element {
               <h2 className="text-lg font-semibold text-gray-900">Resumo</h2>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                    Tipo
-                  </p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Tipo</p>
                   <p className="mt-1 text-sm text-gray-900">{certificate.certificateType}</p>
                 </div>
                 <div>
@@ -343,9 +351,7 @@ export function CertificateDetailPage(): JSX.Element {
               <div className="rounded-lg bg-white p-6 shadow">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-gray-900">Campos Administrativos</h2>
-                  <span className="text-xs text-gray-500">
-                    Somente admins podem editar
-                  </span>
+                  <span className="text-xs text-gray-500">Somente admins podem editar</span>
                 </div>
                 <form
                   className="mt-4 grid gap-4 sm:grid-cols-2"
@@ -361,10 +367,7 @@ export function CertificateDetailPage(): JSX.Element {
                         adminForm.status && adminForm.status !== certificate.status
                           ? (adminForm.status as Certificate['status'])
                           : undefined,
-                      cost:
-                        adminForm.cost !== ''
-                          ? parseFloat(adminForm.cost)
-                          : undefined,
+                      cost: adminForm.cost !== '' ? parseFloat(adminForm.cost) : undefined,
                       additionalCost:
                         adminForm.additionalCost !== ''
                           ? parseFloat(adminForm.additionalCost)
@@ -373,8 +376,7 @@ export function CertificateDetailPage(): JSX.Element {
                         adminForm.orderNumber.trim() !== ''
                           ? adminForm.orderNumber.trim()
                           : undefined,
-                      paymentDate:
-                        adminForm.paymentDate !== '' ? adminForm.paymentDate : undefined,
+                      paymentDate: adminForm.paymentDate !== '' ? adminForm.paymentDate : undefined,
                     };
 
                     const response = await updateCertificate(token, certificate.id, payload);
@@ -407,9 +409,9 @@ export function CertificateDetailPage(): JSX.Element {
                     <select
                       id="status"
                       value={adminForm.status}
-                      onChange={(event) =>
-                        setAdminForm((prev) => ({ ...prev, status: event.target.value }))
-                      }
+                      onChange={(event) => {
+                        setAdminForm((prev) => ({ ...prev, status: event.target.value }));
+                      }}
                       className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
                       disabled={isSaving}
                     >
@@ -430,9 +432,9 @@ export function CertificateDetailPage(): JSX.Element {
                       id="orderNumber"
                       type="text"
                       value={adminForm.orderNumber}
-                      onChange={(event) =>
-                        setAdminForm((prev) => ({ ...prev, orderNumber: event.target.value }))
-                      }
+                      onChange={(event) => {
+                        setAdminForm((prev) => ({ ...prev, orderNumber: event.target.value }));
+                      }}
                       className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
                       disabled={isSaving}
                     />
@@ -449,9 +451,9 @@ export function CertificateDetailPage(): JSX.Element {
                       type="number"
                       step="0.01"
                       value={adminForm.cost}
-                      onChange={(event) =>
-                        setAdminForm((prev) => ({ ...prev, cost: event.target.value }))
-                      }
+                      onChange={(event) => {
+                        setAdminForm((prev) => ({ ...prev, cost: event.target.value }));
+                      }}
                       className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
                       disabled={isSaving}
                     />
@@ -468,12 +470,12 @@ export function CertificateDetailPage(): JSX.Element {
                       type="number"
                       step="0.01"
                       value={adminForm.additionalCost}
-                      onChange={(event) =>
+                      onChange={(event) => {
                         setAdminForm((prev) => ({
                           ...prev,
                           additionalCost: event.target.value,
-                        }))
-                      }
+                        }));
+                      }}
                       className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
                       disabled={isSaving}
                     />
@@ -489,12 +491,12 @@ export function CertificateDetailPage(): JSX.Element {
                       id="paymentDate"
                       type="date"
                       value={adminForm.paymentDate}
-                      onChange={(event) =>
+                      onChange={(event) => {
                         setAdminForm((prev) => ({
                           ...prev,
                           paymentDate: event.target.value,
-                        }))
-                      }
+                        }));
+                      }}
                       className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
                       disabled={isSaving}
                     />
@@ -538,18 +540,14 @@ export function CertificateDetailPage(): JSX.Element {
                     <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
                       Nº do pedido
                     </p>
-                    <p className="mt-1 text-sm text-gray-900">
-                      {certificate.orderNumber ?? '-'}
-                    </p>
+                    <p className="mt-1 text-sm text-gray-900">{certificate.orderNumber ?? '-'}</p>
                   </div>
                   <div>
                     <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
                       Custo
                     </p>
                     <p className="mt-1 text-sm text-gray-900">
-                      {certificate.cost !== null
-                        ? `R$ ${certificate.cost.toFixed(2)}`
-                        : '-'}
+                      {certificate.cost !== null ? `R$ ${certificate.cost.toFixed(2)}` : '-'}
                     </p>
                   </div>
                   <div>
@@ -599,7 +597,9 @@ export function CertificateDetailPage(): JSX.Element {
                             {new Date(event.createdAt).toLocaleString('pt-BR')}
                           </p>
                         </div>
-                        <span className="text-xs font-medium text-gray-400">#{event.id.slice(0, 6)}</span>
+                        <span className="text-xs font-medium text-gray-400">
+                          #{event.id.slice(0, 6)}
+                        </span>
                       </div>
                       {changeLines.length > 0 && (
                         <ul className="mt-2 space-y-1 text-xs text-gray-600">

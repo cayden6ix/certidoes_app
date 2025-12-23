@@ -1,19 +1,9 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type FormEvent,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
+import type { AdminUser, CertificateCatalogType, CertificateTag, PaymentType } from '../lib/api';
 import {
-  AdminUser,
-  CertificateCatalogType,
-  CertificateTag,
-  PaymentType,
   createAdminUser,
   createCertificateTag,
   createCertificateType,
@@ -159,7 +149,9 @@ function UsersSection({ token }: { token: string }): JSX.Element {
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+            }}
             placeholder="Buscar por nome ou e-mail"
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 lg:max-w-sm"
           />
@@ -204,7 +196,9 @@ function UsersSection({ token }: { token: string }): JSX.Element {
               <input
                 required
                 value={form.fullName}
-                onChange={(e) => setForm((prev) => ({ ...prev, fullName: e.target.value }))}
+                onChange={(e) => {
+                  setForm((prev) => ({ ...prev, fullName: e.target.value }));
+                }}
                 className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
               />
             </div>
@@ -214,7 +208,9 @@ function UsersSection({ token }: { token: string }): JSX.Element {
                 required
                 type="email"
                 value={form.email}
-                onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                onChange={(e) => {
+                  setForm((prev) => ({ ...prev, email: e.target.value }));
+                }}
                 className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
               />
             </div>
@@ -227,7 +223,9 @@ function UsersSection({ token }: { token: string }): JSX.Element {
                   type="password"
                   required={!editingId}
                   value={form.password}
-                  onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
+                  onChange={(e) => {
+                    setForm((prev) => ({ ...prev, password: e.target.value }));
+                  }}
                   className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
                 />
               </div>
@@ -235,9 +233,9 @@ function UsersSection({ token }: { token: string }): JSX.Element {
                 <label className="block text-sm font-medium text-gray-700">Papel</label>
                 <select
                   value={form.role}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, role: e.target.value as AdminUser['role'] }))
-                  }
+                  onChange={(e) => {
+                    setForm((prev) => ({ ...prev, role: e.target.value as AdminUser['role'] }));
+                  }}
                   className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
                 >
                   <option value="client">Cliente</option>
@@ -292,7 +290,9 @@ function UsersSection({ token }: { token: string }): JSX.Element {
                     <td className="px-4 py-2">
                       <div className="flex gap-2">
                         <button
-                          onClick={() => handleEdit(user)}
+                          onClick={() => {
+                            handleEdit(user);
+                          }}
                           className="text-sm font-medium text-primary-600 hover:text-primary-500"
                         >
                           Editar
@@ -407,7 +407,9 @@ function PaymentTypesSection({ token }: { token: string }): JSX.Element {
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+            }}
             placeholder="Buscar por nome"
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 lg:max-w-sm"
           />
@@ -450,7 +452,9 @@ function PaymentTypesSection({ token }: { token: string }): JSX.Element {
               <input
                 required
                 value={form.name}
-                onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                onChange={(e) => {
+                  setForm((prev) => ({ ...prev, name: e.target.value }));
+                }}
                 className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
               />
             </div>
@@ -458,7 +462,9 @@ function PaymentTypesSection({ token }: { token: string }): JSX.Element {
               <input
                 type="checkbox"
                 checked={form.enabled}
-                onChange={(e) => setForm((prev) => ({ ...prev, enabled: e.target.checked }))}
+                onChange={(e) => {
+                  setForm((prev) => ({ ...prev, enabled: e.target.checked }));
+                }}
                 className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
               Habilitada
@@ -496,9 +502,7 @@ function PaymentTypesSection({ token }: { token: string }): JSX.Element {
                     <td className="px-4 py-2">
                       <span
                         className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                          item.enabled
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-gray-100 text-gray-700'
+                          item.enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
                         }`}
                       >
                         {item.enabled ? 'Habilitada' : 'Desabilitada'}
@@ -508,7 +512,9 @@ function PaymentTypesSection({ token }: { token: string }): JSX.Element {
                     <td className="px-4 py-2">
                       <div className="flex gap-2">
                         <button
-                          onClick={() => handleEdit(item)}
+                          onClick={() => {
+                            handleEdit(item);
+                          }}
                           className="text-sm font-medium text-primary-600 hover:text-primary-500"
                         >
                           Editar
@@ -625,7 +631,9 @@ function CertificateTypesSection({ token }: { token: string }): JSX.Element {
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+            }}
             placeholder="Buscar por nome"
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 lg:max-w-sm"
           />
@@ -668,7 +676,9 @@ function CertificateTypesSection({ token }: { token: string }): JSX.Element {
               <input
                 required
                 value={form.name}
-                onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                onChange={(e) => {
+                  setForm((prev) => ({ ...prev, name: e.target.value }));
+                }}
                 className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
               />
             </div>
@@ -676,7 +686,9 @@ function CertificateTypesSection({ token }: { token: string }): JSX.Element {
               <input
                 type="checkbox"
                 checked={form.isActive}
-                onChange={(e) => setForm((prev) => ({ ...prev, isActive: e.target.checked }))}
+                onChange={(e) => {
+                  setForm((prev) => ({ ...prev, isActive: e.target.checked }));
+                }}
                 className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
               Ativo
@@ -714,19 +726,21 @@ function CertificateTypesSection({ token }: { token: string }): JSX.Element {
                     <td className="px-4 py-2">
                       <span
                         className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                          item.isActive ?? true
+                          (item.isActive ?? true)
                             ? 'bg-green-100 text-green-700'
                             : 'bg-gray-100 text-gray-700'
                         }`}
                       >
-                        {item.isActive ?? true ? 'Ativo' : 'Inativo'}
+                        {(item.isActive ?? true) ? 'Ativo' : 'Inativo'}
                       </span>
                     </td>
                     <td className="px-4 py-2 text-gray-700">{formatDate(item.createdAt)}</td>
                     <td className="px-4 py-2">
                       <div className="flex gap-2">
                         <button
-                          onClick={() => handleEdit(item)}
+                          onClick={() => {
+                            handleEdit(item);
+                          }}
                           className="text-sm font-medium text-primary-600 hover:text-primary-500"
                         >
                           Editar
@@ -839,16 +853,15 @@ function TagsSection({ token }: { token: string }): JSX.Element {
   );
 
   return (
-    <SectionCard
-      title="Tags"
-      description="Crie tags coloridas e acompanhe quem criou e quando."
-    >
+    <SectionCard title="Tags" description="Crie tags coloridas e acompanhe quem criou e quando.">
       <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-1 items-center gap-3">
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+            }}
             placeholder="Buscar por nome ou descrição"
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 lg:max-w-sm"
           />
@@ -887,9 +900,7 @@ function TagsSection({ token }: { token: string }): JSX.Element {
             <h3 className="text-sm font-semibold text-gray-800">
               {editingId ? 'Editar tag' : 'Nova tag'}
             </h3>
-            <p className="text-xs text-gray-500">
-              Defina nome e escolha uma cor de destaque.
-            </p>
+            <p className="text-xs text-gray-500">Defina nome e escolha uma cor de destaque.</p>
           </div>
           <div className="space-y-3">
             <div>
@@ -897,7 +908,9 @@ function TagsSection({ token }: { token: string }): JSX.Element {
               <input
                 required
                 value={form.name}
-                onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                onChange={(e) => {
+                  setForm((prev) => ({ ...prev, name: e.target.value }));
+                }}
                 className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
               />
             </div>
@@ -907,7 +920,9 @@ function TagsSection({ token }: { token: string }): JSX.Element {
                 <input
                   type="color"
                   value={form.color}
-                  onChange={(e) => setForm((prev) => ({ ...prev, color: e.target.value }))}
+                  onChange={(e) => {
+                    setForm((prev) => ({ ...prev, color: e.target.value }));
+                  }}
                   className="h-10 w-16 rounded border border-gray-300"
                 />
                 <span className="text-sm text-gray-600">{form.color}</span>
@@ -958,7 +973,9 @@ function TagsSection({ token }: { token: string }): JSX.Element {
                     <td className="px-4 py-2">
                       <div className="flex gap-2">
                         <button
-                          onClick={() => handleEdit(item)}
+                          onClick={() => {
+                            handleEdit(item);
+                          }}
                           className="text-sm font-medium text-primary-600 hover:text-primary-500"
                         >
                           Editar

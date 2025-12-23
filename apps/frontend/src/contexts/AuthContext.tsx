@@ -1,16 +1,6 @@
-import {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  type ReactNode,
-} from 'react';
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  loginUser as apiLoginUser,
-  logoutUser as apiLogoutUser,
-  type AuthUser,
-} from '../lib/api';
+import { loginUser as apiLoginUser, logoutUser as apiLogoutUser, type AuthUser } from '../lib/api';
 
 /**
  * Chaves utilizadas no localStorage para persistência de sessão
@@ -120,7 +110,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
 
       // Redireciona baseado no role
       const targetPath = response.data.user.role === 'admin' ? '/admin/dashboard' : '/dashboard';
-      navigate(targetPath, { replace: true });
+      void navigate(targetPath, { replace: true });
 
       return { success: true };
     },
@@ -141,7 +131,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     }
 
     clearAuthData();
-    navigate('/login', { replace: true });
+    void navigate('/login', { replace: true });
   }, [token, clearAuthData, navigate]);
 
   const value: AuthContextType = {

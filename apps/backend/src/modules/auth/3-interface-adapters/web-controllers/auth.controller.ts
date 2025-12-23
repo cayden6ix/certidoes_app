@@ -155,12 +155,11 @@ export class AuthController {
 
     const result = await this.getUserProfileUseCase.execute(id);
 
-    if (
-      !result.success &&
-      (result.error === AuthError.USER_NOT_FOUND ||
-        result.error === AuthError.PROFILE_NOT_FOUND)
-    ) {
-      throw new NotFoundException(result.error);
+    if (!result.success) {
+      const error = result.error as AuthError | undefined;
+      if (error === AuthError.USER_NOT_FOUND || error === AuthError.PROFILE_NOT_FOUND) {
+        throw new NotFoundException(error);
+      }
     }
 
     const profile = ResultToHttpHelper.handle(result);

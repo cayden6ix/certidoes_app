@@ -3,7 +3,7 @@ import { failure, success } from '../../../../shared/1-domain/types/result.type'
 import type { LoggerContract } from '../../../../shared/1-domain/contracts/logger.contract';
 import { AuthError } from '../../1-domain/errors/auth-errors.enum';
 import type { AuthRepositoryContract } from '../../1-domain/contracts/auth.repository.contract';
-import { LoginRequestDto } from '../dto/login-request.dto';
+import type { LoginRequestDto } from '../dto/login-request.dto';
 import { AuthResponseDto } from '../dto/auth-response.dto';
 
 /**
@@ -35,10 +35,7 @@ export class LoginUseCase {
       }
 
       // Tenta autenticar via repositório
-      const authResult = await this.authRepository.login(
-        request.email,
-        request.password,
-      );
+      const authResult = await this.authRepository.login(request.email, request.password);
 
       if (!authResult.success) {
         this.logger.warn('Login falhou - credenciais inválidas', {
@@ -59,16 +56,9 @@ export class LoginUseCase {
       });
 
       // Retorna sucesso com dados do usuário e tokens
-      return success(
-        new AuthResponseDto(
-          authUser,
-          authUser.accessToken,
-          authUser.refreshToken,
-        ),
-      );
+      return success(new AuthResponseDto(authUser, authUser.accessToken, authUser.refreshToken));
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Erro desconhecido';
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
 
       this.logger.error('Erro durante login', {
         error: errorMessage,

@@ -32,7 +32,7 @@ export class CertificateStatusValueObject {
       );
     }
 
-    return success(new CertificateStatusValueObject(status as CertificateStatusType));
+    return success(new CertificateStatusValueObject(status));
   }
 
   /**

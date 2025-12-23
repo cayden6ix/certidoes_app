@@ -8,7 +8,7 @@ import type {
   ListCertificatesOptions,
   PaginatedCertificates,
 } from '../../1-domain/contracts/certificate.repository.contract';
-import { CertificateEntity } from '../../1-domain/entities/certificate.entity';
+import type { CertificateEntity } from '../../1-domain/entities/certificate.entity';
 import { CertificateError } from '../../1-domain/errors/certificate-errors.enum';
 import type { TypedSupabaseClient } from '../../../supabase/4-infrastructure/di/supabase.providers';
 import type {
@@ -140,9 +140,7 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
         : [];
 
       // Inicia query base
-      let query = this.supabaseClient
-        .from('certificates')
-        .select('*', { count: 'exact' });
+      let query = this.supabaseClient.from('certificates').select('*', { count: 'exact' });
 
       // Aplica filtros
       if (options.userId) {
@@ -172,8 +170,7 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
           `order_number.ilike.%${searchValue}%`,
         ];
 
-        const arraySearchValue =
-          CertificateSearchHelper.formatArraySearchValue(searchValue);
+        const arraySearchValue = CertificateSearchHelper.formatArraySearchValue(searchValue);
         searchConditions.push(`party_names.cs.{${arraySearchValue}}`);
 
         if (searchTypeIds.length > 0) {

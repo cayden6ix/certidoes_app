@@ -29,27 +29,35 @@ export class ListCertificatesQueryDto {
   priority?: string;
 
   @IsOptional()
-  @Transform(({ value }) => (value ? parseInt(value, 10) : undefined))
+  @Transform(({ value }) =>
+    typeof value === 'string' && value !== '' ? parseInt(value, 10) : undefined,
+  )
   @IsInt({ message: 'Página deve ser um número inteiro' })
   @Min(1, { message: 'Página mínima é 1' })
   page?: number;
 
   @IsOptional()
-  @Transform(({ value }) => (value ? parseInt(value, 10) : undefined))
+  @Transform(({ value }) =>
+    typeof value === 'string' && value !== '' ? parseInt(value, 10) : undefined,
+  )
   @IsInt({ message: 'PageSize deve ser um número inteiro' })
   @Min(1, { message: 'PageSize mínimo é 1' })
   @Max(100, { message: 'PageSize máximo é 100' })
   pageSize?: number;
 
   @IsOptional()
-  @Transform(({ value }) => (value ? parseInt(value, 10) : undefined))
+  @Transform(({ value }) =>
+    typeof value === 'string' && value !== '' ? parseInt(value, 10) : undefined,
+  )
   @IsInt({ message: 'Limite deve ser um número inteiro' })
   @Min(1, { message: 'Limite mínimo é 1' })
   @Max(100, { message: 'Limite máximo é 100' })
   limit?: number;
 
   @IsOptional()
-  @Transform(({ value }) => (value ? parseInt(value, 10) : undefined))
+  @Transform(({ value }) =>
+    typeof value === 'string' && value !== '' ? parseInt(value, 10) : undefined,
+  )
   @IsInt({ message: 'Offset deve ser um número inteiro' })
   @Min(0, { message: 'Offset mínimo é 0' })
   offset?: number;

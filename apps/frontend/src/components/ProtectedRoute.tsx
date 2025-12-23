@@ -5,7 +5,7 @@ interface ProtectedRouteProps {
   /** Conteúdo a ser renderizado se autenticado */
   children: JSX.Element;
   /** Roles permitidas para acessar a rota (opcional - se não informado, qualquer role é permitida) */
-  allowedRoles?: Array<'client' | 'admin'>;
+  allowedRoles?: ('client' | 'admin')[];
 }
 
 /**

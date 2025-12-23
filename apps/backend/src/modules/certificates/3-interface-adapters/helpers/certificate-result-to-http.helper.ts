@@ -23,8 +23,10 @@ export class CertificateResultToHttpHelper {
       return result.data;
     }
 
+    const error = result.error as CertificateError | undefined;
+
     // Mapeia erros de domínio para exceções HTTP
-    switch (result.error) {
+    switch (error) {
       // Erros 404 - Not Found
       case CertificateError.CERTIFICATE_NOT_FOUND:
         throw new NotFoundException(result.error);

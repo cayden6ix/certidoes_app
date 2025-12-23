@@ -51,7 +51,7 @@ export class CreateCertificateUseCase {
       certificateType: request.certificateType.trim(),
       recordNumber: request.recordNumber.trim(),
       partiesName: request.partiesName.trim(),
-      notes: request.notes?.trim() || undefined,
+      notes: request.notes?.trim() ?? undefined,
       priority: request.priority,
     });
 

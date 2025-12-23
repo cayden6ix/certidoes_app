@@ -1,13 +1,13 @@
-import {
-  BadRequestException,
-  Injectable,
-  Inject,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Inject } from '@nestjs/common';
 import type { CertificateTag } from '@shared/types';
 
 import { SUPABASE_CLIENT } from '../../../supabase/4-infrastructure/di/supabase.tokens';
 import type { TypedSupabaseClient } from '../../../supabase/4-infrastructure/di/supabase.providers';
-import type { Tables, TablesInsert, TablesUpdate } from '../../../supabase/1-domain/types/database.types';
+import type {
+  Tables,
+  TablesInsert,
+  TablesUpdate,
+} from '../../../supabase/1-domain/types/database.types';
 import { LOGGER_CONTRACT } from '../../../../shared/1-domain/contracts/logger.contract';
 import type { LoggerContract } from '../../../../shared/1-domain/contracts/logger.contract';
 
@@ -159,8 +159,8 @@ export class CertificateTagsService {
       color: row.color ?? null,
       createdBy:
         (row as Record<string, string | null>).created_by &&
-        creators.get((row as Record<string, string | null>).created_by as string)
-          ? creators.get((row as Record<string, string | null>).created_by as string) ?? null
+        creators.get((row as Record<string, string | null>).created_by!)
+          ? (creators.get((row as Record<string, string | null>).created_by!) ?? null)
           : null,
       createdAt: row.created_at,
     };

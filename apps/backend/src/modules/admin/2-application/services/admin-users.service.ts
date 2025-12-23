@@ -129,7 +129,7 @@ export class AdminUsersService {
 
       const userFriendly = maybeDuplicate
         ? 'Usuário já existe ou email em uso (verifique auth.users no Supabase)'
-        : error?.message ?? 'Não foi possível criar o usuário';
+        : (error?.message ?? 'Não foi possível criar o usuário');
 
       throw new BadRequestException(userFriendly);
     }
@@ -199,7 +199,10 @@ export class AdminUsersService {
     }
   }
 
-  private async upsertProfile(user: AuthUser, params: CreateUserParams): Promise<Tables<'profiles'>> {
+  private async upsertProfile(
+    user: AuthUser,
+    params: CreateUserParams,
+  ): Promise<Tables<'profiles'>> {
     const { data: profile, error: profileError } = await this.supabase
       .from('profiles')
       .upsert(
@@ -253,7 +256,7 @@ export class AdminUsersService {
     // Percorre páginas até encontrar ou acabar (adequado para bases pequenas)
     // Em bases grandes, considere otimizar com RPC.
     // O Supabase retorna empty quando não há mais páginas.
-    // eslint-disable-next-line no-constant-condition
+
     while (true) {
       const { data, error } = await this.supabase.auth.admin.listUsers({
         page,
@@ -269,9 +272,7 @@ export class AdminUsersService {
       }
 
       const users = data?.users ?? [];
-      const found = users.find(
-        (u) => u.email && u.email.toLowerCase() === target,
-      );
+      const found = users.find((u) => u.email && u.email.toLowerCase() === target);
 
       if (found) {
         return found;

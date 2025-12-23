@@ -1,4 +1,4 @@
-import { Provider } from '@nestjs/common';
+import type { Provider } from '@nestjs/common';
 import { LOGGER_CONTRACT } from '../../../../shared/1-domain/contracts/logger.contract';
 import type { LoggerContract } from '../../../../shared/1-domain/contracts/logger.contract';
 import type { AuthRepositoryContract } from '../../1-domain/contracts/auth.repository.contract';
@@ -43,10 +43,7 @@ export const authProviders: Provider[] = [
 
   {
     provide: TOKEN_SERVICE_CONTRACT,
-    useFactory: (
-      supabaseClient: SupabaseClient,
-      logger: LoggerContract,
-    ): TokenServiceContract => {
+    useFactory: (supabaseClient: SupabaseClient, logger: LoggerContract): TokenServiceContract => {
       return new SupabaseTokenService(supabaseClient, logger);
     },
     inject: [SUPABASE_CLIENT, LOGGER_CONTRACT],
@@ -56,10 +53,7 @@ export const authProviders: Provider[] = [
 
   {
     provide: LOGIN_USECASE,
-    useFactory: (
-      authRepository: AuthRepositoryContract,
-      logger: LoggerContract,
-    ): LoginUseCase => {
+    useFactory: (authRepository: AuthRepositoryContract, logger: LoggerContract): LoginUseCase => {
       return new LoginUseCase(authRepository, logger);
     },
     inject: [AUTH_REPOSITORY_CONTRACT, LOGGER_CONTRACT],
@@ -67,10 +61,7 @@ export const authProviders: Provider[] = [
 
   {
     provide: LOGOUT_USECASE,
-    useFactory: (
-      authRepository: AuthRepositoryContract,
-      logger: LoggerContract,
-    ): LogoutUseCase => {
+    useFactory: (authRepository: AuthRepositoryContract, logger: LoggerContract): LogoutUseCase => {
       return new LogoutUseCase(authRepository, logger);
     },
     inject: [AUTH_REPOSITORY_CONTRACT, LOGGER_CONTRACT],

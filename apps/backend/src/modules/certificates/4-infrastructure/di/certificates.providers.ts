@@ -1,4 +1,4 @@
-import { Provider } from '@nestjs/common';
+import type { Provider } from '@nestjs/common';
 import { LOGGER_CONTRACT } from '../../../../shared/1-domain/contracts/logger.contract';
 import type { LoggerContract } from '../../../../shared/1-domain/contracts/logger.contract';
 import type { CertificateEventRepositoryContract } from '../../1-domain/contracts/certificate-event.repository.contract';
@@ -11,7 +11,7 @@ import { ListCertificateEventsUseCase } from '../../2-application/use-cases/list
 import { SupabaseCertificateEventRepository } from '../repository-adapters/supabase-certificate-event.repository';
 import { SupabaseCertificateRepository } from '../repository-adapters/supabase-certificate.repository';
 import { SUPABASE_CLIENT } from '../../../supabase/4-infrastructure/di/supabase.tokens';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { TypedSupabaseClient } from '../../../supabase/4-infrastructure/di/supabase.providers';
 import {
   CERTIFICATE_EVENT_REPOSITORY_CONTRACT,
   CERTIFICATE_REPOSITORY_CONTRACT,
@@ -33,7 +33,7 @@ export const certificatesProviders: Provider[] = [
   {
     provide: CERTIFICATE_REPOSITORY_CONTRACT,
     useFactory: (
-      supabaseClient: SupabaseClient,
+      supabaseClient: TypedSupabaseClient,
       logger: LoggerContract,
     ): CertificateRepositoryContract => {
       return new SupabaseCertificateRepository(supabaseClient, logger);
@@ -43,7 +43,7 @@ export const certificatesProviders: Provider[] = [
   {
     provide: CERTIFICATE_EVENT_REPOSITORY_CONTRACT,
     useFactory: (
-      supabaseClient: SupabaseClient,
+      supabaseClient: TypedSupabaseClient,
       logger: LoggerContract,
     ): CertificateEventRepositoryContract => {
       return new SupabaseCertificateEventRepository(supabaseClient, logger);

@@ -3,11 +3,7 @@ import { Link } from 'react-router-dom';
 
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
-import {
-  listCertificates,
-  type Certificate,
-  type PaginatedCertificates,
-} from '../lib/api';
+import { listCertificates, type Certificate, type PaginatedCertificates } from '../lib/api';
 
 /**
  * Mapeia status para cores e labels
@@ -292,7 +288,9 @@ export function DashboardPage(): JSX.Element {
                   d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                 />
               </svg>
-              <h3 className="mt-4 text-lg font-medium text-gray-900">Nenhuma certidão encontrada</h3>
+              <h3 className="mt-4 text-lg font-medium text-gray-900">
+                Nenhuma certidão encontrada
+              </h3>
               <p className="mt-2 text-sm text-gray-500">
                 {statusFilter
                   ? 'Nenhuma certidão encontrada com este filtro.'
@@ -367,9 +365,7 @@ export function DashboardPage(): JSX.Element {
                       </td>
                       {isAdmin && (
                         <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                          {cert.cost !== null
-                            ? `R$ ${cert.cost.toFixed(2)}`
-                            : '-'}
+                          {cert.cost !== null ? `R$ ${cert.cost.toFixed(2)}` : '-'}
                         </td>
                       )}
                       <td className="whitespace-nowrap px-6 py-4 text-sm">
@@ -392,13 +388,17 @@ export function DashboardPage(): JSX.Element {
             <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-6 py-3">
               <p className="text-sm text-gray-700">
                 Mostrando{' '}
-                <span className="font-medium">{Math.min(certificates.length, pagination.limit)}</span>{' '}
+                <span className="font-medium">
+                  {Math.min(certificates.length, pagination.limit)}
+                </span>{' '}
                 de <span className="font-medium">{pagination.total}</span> resultados
               </p>
               <div className="flex items-center space-x-2">
                 <button
                   type="button"
-                  onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                  onClick={() => {
+                    setPage((prev) => Math.max(1, prev - 1));
+                  }}
                   disabled={page <= 1}
                   className="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -409,7 +409,9 @@ export function DashboardPage(): JSX.Element {
                 </span>
                 <button
                   type="button"
-                  onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                  onClick={() => {
+                    setPage((prev) => Math.min(totalPages, prev + 1));
+                  }}
                   disabled={page >= totalPages}
                   className="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
