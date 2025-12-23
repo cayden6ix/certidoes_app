@@ -3,9 +3,12 @@ import {
   Post,
   Get,
   Body,
+  Param,
   UseGuards,
   Inject,
   HttpCode,
+  ParseUUIDPipe,
+  NotFoundException,
 } from '@nestjs/common';
 import type { LoggerContract } from '../../../../shared/1-domain/contracts/logger.contract';
 import { LOGGER_CONTRACT } from '../../../../shared/1-domain/contracts/logger.contract';
@@ -13,10 +16,12 @@ import {
   LOGIN_USECASE,
   LOGOUT_USECASE,
   GET_CURRENT_USER_USECASE,
+  GET_USER_PROFILE_USECASE,
 } from '../../4-infrastructure/di/auth.tokens';
 import type { LoginUseCase } from '../../2-application/use-cases/login.usecase';
 import type { LogoutUseCase } from '../../2-application/use-cases/logout.usecase';
 import type { GetCurrentUserUseCase } from '../../2-application/use-cases/get-current-user.usecase';
+import type { GetUserProfileUseCase } from '../../2-application/use-cases/get-user-profile.usecase';
 import { LoginApiDto } from '../api-dto/login.dto';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
@@ -25,6 +30,7 @@ import { CurrentUser } from '../decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../types/express-request.types';
 import { ResultToHttpHelper } from '../helpers/result-to-http.helper';
 import { LoginRequestDto } from '../../2-application/dto/login-request.dto';
+import { AuthError } from '../../1-domain/errors/auth-errors.enum';
 
 /**
  * Controller de autenticação
@@ -37,6 +43,8 @@ export class AuthController {
     @Inject(LOGOUT_USECASE) private readonly logoutUseCase: LogoutUseCase,
     @Inject(GET_CURRENT_USER_USECASE)
     _getCurrentUserUseCase: GetCurrentUserUseCase,
+    @Inject(GET_USER_PROFILE_USECASE)
+    private readonly getUserProfileUseCase: GetUserProfileUseCase,
     @Inject(LOGGER_CONTRACT) private readonly logger: LoggerContract,
   ) {}
 
@@ -123,6 +131,44 @@ export class AuthController {
     return {
       message: 'Você é um administrador!',
       userId: user.userId,
+    };
+  }
+
+  /**
+   * Endpoint para obter perfil de usuário pelo ID
+   * GET /auth/users/:id (com prefixo global: /api/auth/users/:id)
+   * Protegido por JwtAuthGuard
+   * @param id - ID do usuário (UUID)
+   * @returns Perfil básico do usuário
+   */
+  @Get('users/:id')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  async getUserProfile(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    this.logger.debug('Requisição de perfil por ID', {
+      requesterId: user.userId,
+      targetUserId: id,
+    });
+
+    const result = await this.getUserProfileUseCase.execute(id);
+
+    if (
+      !result.success &&
+      (result.error === AuthError.USER_NOT_FOUND ||
+        result.error === AuthError.PROFILE_NOT_FOUND)
+    ) {
+      throw new NotFoundException(result.error);
+    }
+
+    const profile = ResultToHttpHelper.handle(result);
+
+    return {
+      id: profile.id,
+      fullName: profile.fullName,
+      role: profile.role.getValue(),
     };
   }
 }

@@ -160,6 +160,16 @@ export interface Certificate {
   updatedAt: string;
 }
 
+export interface CertificateEvent {
+  id: string;
+  certificateId: string;
+  actorUserId: string;
+  actorRole: 'client' | 'admin';
+  eventType: string;
+  changes: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 export interface PaginatedCertificates {
   data: Certificate[];
   total: number;
@@ -253,6 +263,20 @@ export async function getCertificate(
   id: string,
 ): Promise<ApiResponse<Certificate>> {
   return apiClient<Certificate>(`/certificates/${id}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+/**
+ * Lista eventos de uma certidão
+ */
+export async function listCertificateEvents(
+  token: string,
+  id: string,
+): Promise<ApiResponse<CertificateEvent[]>> {
+  return apiClient<CertificateEvent[]>(`/certificates/${id}/events`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },

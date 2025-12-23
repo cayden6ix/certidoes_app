@@ -29,4 +29,11 @@ export interface AuthRepositoryContract {
    * @returns Result com AuthUserEntity ou erro
    */
   getCurrentUser(token: string): Promise<Result<AuthUserEntity>>;
+
+  /**
+   * Busca um usuário pelo ID
+   * @param userId - ID do usuário
+   * @returns Result com AuthUserEntity ou erro
+   */
+  getUserById(userId: string): Promise<Result<AuthUserEntity>>;
 }

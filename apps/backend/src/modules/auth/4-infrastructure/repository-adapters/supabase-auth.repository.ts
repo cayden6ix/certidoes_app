@@ -216,6 +216,53 @@ export class SupabaseAuthRepository implements AuthRepositoryContract {
   }
 
   /**
+   * Obtém dados de um usuário pelo ID
+   * @param userId - ID do usuário
+   * @returns Result com AuthUserEntity ou erro
+   */
+  async getUserById(userId: string): Promise<Result<AuthUserEntity>> {
+    try {
+      if (!userId) {
+        this.logger.warn('Tentativa de obter usuário sem ID');
+        return failure(AuthError.USER_NOT_FOUND);
+      }
+
+      const { data: profileData, error: profileError } = await this.supabaseClient
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single<ProfileRow>();
+
+      if (profileError || !profileData) {
+        this.logger.warn('Profile não encontrado para usuário', {
+          userId,
+          error: profileError?.message,
+        });
+
+        return failure(AuthError.PROFILE_NOT_FOUND);
+      }
+
+      const authUser = this.mapToAuthUserEntityFromProfile(profileData);
+
+      if (!authUser) {
+        return failure(AuthError.AUTHENTICATION_SERVICE_ERROR);
+      }
+
+      return success(authUser);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erro desconhecido';
+
+      this.logger.error('Erro ao obter usuário por ID', {
+        userId,
+        error: errorMessage,
+      });
+
+      return failure(AuthError.AUTHENTICATION_SERVICE_ERROR, { error });
+    }
+  }
+
+  /**
    * Mapeia sessão e profile para AuthUserEntity
    * @param session - Sessão retornada pelo Supabase Auth
    * @param profile - Dados do profile do usuário

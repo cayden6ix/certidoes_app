@@ -8,6 +8,7 @@ import {
   LOGIN_USECASE,
   LOGOUT_USECASE,
   GET_CURRENT_USER_USECASE,
+  GET_USER_PROFILE_USECASE,
 } from './4-infrastructure/di/auth.tokens';
 
 /**
@@ -25,6 +26,7 @@ import {
     LOGIN_USECASE,
     LOGOUT_USECASE,
     GET_CURRENT_USER_USECASE,
+    GET_USER_PROFILE_USECASE,
   ],
 })
 export class AuthModule {}

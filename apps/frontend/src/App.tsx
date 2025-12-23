@@ -2,7 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute, PublicOnlyRoute } from './components/ProtectedRoute';
-import { LoginPage, DashboardPage, RequestCertificatePage } from './pages';
+import { LoginPage, DashboardPage, RequestCertificatePage, CertificateDetailPage } from './pages';
 
 /**
  * Componente principal da aplicação
@@ -36,6 +36,14 @@ function App(): JSX.Element {
           element={
             <ProtectedRoute>
               <RequestCertificatePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/certificates/:id"
+          element={
+            <ProtectedRoute>
+              <CertificateDetailPage />
             </ProtectedRoute>
           }
         />

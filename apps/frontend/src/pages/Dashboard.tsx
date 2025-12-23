@@ -339,6 +339,9 @@ export function DashboardPage(): JSX.Element {
                         Custo
                       </th>
                     )}
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Ações
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
@@ -369,6 +372,14 @@ export function DashboardPage(): JSX.Element {
                             : '-'}
                         </td>
                       )}
+                      <td className="whitespace-nowrap px-6 py-4 text-sm">
+                        <Link
+                          to={`/certificates/${cert.id}`}
+                          className="text-primary-600 hover:text-primary-500"
+                        >
+                          Ver detalhes
+                        </Link>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

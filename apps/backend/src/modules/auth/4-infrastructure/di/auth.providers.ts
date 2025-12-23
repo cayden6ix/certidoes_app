@@ -6,6 +6,7 @@ import type { TokenServiceContract } from '../../1-domain/contracts/token.servic
 import { LoginUseCase } from '../../2-application/use-cases/login.usecase';
 import { LogoutUseCase } from '../../2-application/use-cases/logout.usecase';
 import { GetCurrentUserUseCase } from '../../2-application/use-cases/get-current-user.usecase';
+import { GetUserProfileUseCase } from '../../2-application/use-cases/get-user-profile.usecase';
 import { SupabaseAuthRepository } from '../repository-adapters/supabase-auth.repository';
 import { SupabaseTokenService } from '../services/supabase-token.service';
 import { SUPABASE_CLIENT } from '../../../supabase/4-infrastructure/di/supabase.tokens';
@@ -16,6 +17,7 @@ import {
   LOGIN_USECASE,
   LOGOUT_USECASE,
   GET_CURRENT_USER_USECASE,
+  GET_USER_PROFILE_USECASE,
 } from './auth.tokens';
 
 /**
@@ -81,6 +83,17 @@ export const authProviders: Provider[] = [
       logger: LoggerContract,
     ): GetCurrentUserUseCase => {
       return new GetCurrentUserUseCase(authRepository, logger);
+    },
+    inject: [AUTH_REPOSITORY_CONTRACT, LOGGER_CONTRACT],
+  },
+
+  {
+    provide: GET_USER_PROFILE_USECASE,
+    useFactory: (
+      authRepository: AuthRepositoryContract,
+      logger: LoggerContract,
+    ): GetUserProfileUseCase => {
+      return new GetUserProfileUseCase(authRepository, logger);
     },
     inject: [AUTH_REPOSITORY_CONTRACT, LOGGER_CONTRACT],
   },

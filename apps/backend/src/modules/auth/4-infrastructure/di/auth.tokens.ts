@@ -11,3 +11,4 @@ export const TOKEN_SERVICE_CONTRACT = Symbol('TokenServiceContract');
 export const LOGIN_USECASE = Symbol('LoginUseCase');
 export const LOGOUT_USECASE = Symbol('LogoutUseCase');
 export const GET_CURRENT_USER_USECASE = Symbol('GetCurrentUserUseCase');
+export const GET_USER_PROFILE_USECASE = Symbol('GetUserProfileUseCase');
