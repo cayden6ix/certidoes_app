@@ -132,6 +132,13 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
    */
   async findAll(options: ListCertificatesOptions): Promise<Result<PaginatedCertificates>> {
     try {
+      const searchValue = options.search
+        ? CertificateSearchHelper.normalizeSearchValue(options.search)
+        : '';
+      const searchTypeIds = searchValue
+        ? await this.typeResolver.findTypeIdsBySearch(searchValue)
+        : [];
+
       // Inicia query base
       let query = this.supabaseClient
         .from('certificates')
@@ -159,22 +166,21 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
         query = query.eq('priority', priorityValue);
       }
 
-      if (options.search) {
-        const searchValue = CertificateSearchHelper.normalizeSearchValue(options.search);
+      if (searchValue) {
+        const searchConditions = [
+          `record_number.ilike.%${searchValue}%`,
+          `order_number.ilike.%${searchValue}%`,
+        ];
 
-        if (searchValue) {
-          const typeIds = await this.typeResolver.findTypeIdsBySearch(searchValue);
+        const arraySearchValue =
+          CertificateSearchHelper.formatArraySearchValue(searchValue);
+        searchConditions.push(`party_names.cs.{${arraySearchValue}}`);
 
-          const searchConditions = [
-            `record_number.ilike.%${searchValue}%`,
-          ];
-
-          if (typeIds.length > 0) {
-            searchConditions.push(`certificate_type_id.in.(${typeIds.join(',')})`);
-          }
-
-          query = query.or(searchConditions.join(','));
+        if (searchTypeIds.length > 0) {
+          searchConditions.push(`certificate_type_id.in.(${searchTypeIds.join(',')})`);
         }
+
+        query = query.or(searchConditions.join(','));
       }
 
       // Aplica paginação

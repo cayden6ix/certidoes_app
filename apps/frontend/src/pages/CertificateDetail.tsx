@@ -518,6 +518,63 @@ export function CertificateDetailPage(): JSX.Element {
                 </form>
               </div>
             )}
+
+            {!isAdmin && (
+              <div className="rounded-lg bg-white p-6 shadow">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900">Dados Administrativos</h2>
+                  <span className="text-xs text-gray-500">Somente leitura</span>
+                </div>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                      Status
+                    </p>
+                    <div className="mt-1">
+                      <Badge config={STATUS_CONFIG[certificate.status]} />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                      Nº do pedido
+                    </p>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {certificate.orderNumber ?? '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                      Custo
+                    </p>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {certificate.cost !== null
+                        ? `R$ ${certificate.cost.toFixed(2)}`
+                        : '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                      Custo adicional
+                    </p>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {certificate.additionalCost !== null
+                        ? `R$ ${certificate.additionalCost.toFixed(2)}`
+                        : '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                      Data de pagamento
+                    </p>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {certificate.paymentDate
+                        ? new Date(certificate.paymentDate).toLocaleDateString('pt-BR')
+                        : '-'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="rounded-lg bg-white p-6 shadow">
