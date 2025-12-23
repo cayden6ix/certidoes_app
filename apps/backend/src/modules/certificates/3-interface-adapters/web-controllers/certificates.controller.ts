@@ -259,6 +259,7 @@ export class CertificatesController {
       additionalCost: dto.additionalCost,
       orderNumber: dto.orderNumber,
       paymentDate: dto.paymentDate ? new Date(dto.paymentDate) : undefined,
+      paymentTypeId: dto.paymentTypeId === undefined ? undefined : (dto.paymentTypeId ?? null),
     });
 
     const result = await this.updateCertificateUseCase.execute(request);

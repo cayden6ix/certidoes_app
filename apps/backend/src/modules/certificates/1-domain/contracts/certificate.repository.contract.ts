@@ -11,6 +11,7 @@ export interface CreateCertificateData {
   partiesName: string;
   notes?: string;
   priority?: 'normal' | 'urgent';
+  paymentTypeId?: string | null;
 }
 
 /**
@@ -27,6 +28,7 @@ export interface UpdateCertificateData {
   additionalCost?: number;
   orderNumber?: string;
   paymentDate?: Date;
+  paymentTypeId?: string | null;
 }
 
 /**

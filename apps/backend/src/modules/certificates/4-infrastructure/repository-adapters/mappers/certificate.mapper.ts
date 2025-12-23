@@ -28,9 +28,14 @@ export class CertificateMapper {
    * Mapeia uma linha do banco para entidade de domínio
    * @param row - Linha do banco de dados
    * @param certificateTypeName - Nome do tipo de certidão (opcional, resolvido externamente)
+   * @param paymentTypeName - Nome do tipo de pagamento (opcional, resolvido externamente)
    * @returns Entidade ou null se falhar
    */
-  mapToEntity(row: CertificateRow, certificateTypeName?: string): CertificateEntity | null {
+  mapToEntity(
+    row: CertificateRow,
+    certificateTypeName?: string,
+    paymentTypeName?: string | null,
+  ): CertificateEntity | null {
     try {
       const statusValue = row.status ?? DEFAULT_STATUS;
       const statusResult = CertificateStatusValueObject.create(statusValue);
@@ -63,6 +68,8 @@ export class CertificateMapper {
         cost: row.cost ?? null,
         additionalCost: row.additional_cost ?? null,
         orderNumber: row.order_number ?? null,
+        paymentTypeId: row.payment_type_id ?? null,
+        paymentType: paymentTypeName ?? this.resolvePaymentTypeFromRow(row),
         paymentDate: row.payment_date ? new Date(row.payment_date) : null,
         createdAt: new Date(row.created_at),
         updatedAt: new Date(row.updated_at),
@@ -84,9 +91,16 @@ export class CertificateMapper {
   mapManyToEntities(
     rows: CertificateRow[],
     typeNameMap: Map<string, string>,
+    paymentTypeNameMap: Map<string, string>,
   ): CertificateEntity[] {
     return rows
-      .map((row) => this.mapToEntity(row, this.resolveCertificateTypeName(row, typeNameMap)))
+      .map((row) =>
+        this.mapToEntity(
+          row,
+          this.resolveCertificateTypeName(row, typeNameMap),
+          this.resolvePaymentTypeName(row, paymentTypeNameMap),
+        ),
+      )
       .filter((entity): entity is CertificateEntity => entity !== null);
   }
 
@@ -158,6 +172,28 @@ export class CertificateMapper {
    */
   private resolveCertificateTypeFromRow(row: CertificateRow): string {
     return row.certificate_type ?? row.certificate_type_id ?? '';
+  }
+
+  /**
+   * Resolve o nome do tipo de pagamento usando mapa de IDs
+   */
+  resolvePaymentTypeName(row: CertificateRow, typeNameMap: Map<string, string>): string | null {
+    if (!row.payment_type_id) {
+      return null;
+    }
+
+    return typeNameMap.get(row.payment_type_id) ?? row.payment_type_id;
+  }
+
+  /**
+   * Resolve o nome do tipo de pagamento diretamente da linha
+   */
+  private resolvePaymentTypeFromRow(row: CertificateRow): string | null {
+    if (!row.payment_type_id) {
+      return null;
+    }
+
+    return row.payment_type_id;
   }
 
   /**

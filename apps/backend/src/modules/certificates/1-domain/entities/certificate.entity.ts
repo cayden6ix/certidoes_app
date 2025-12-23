@@ -16,6 +16,8 @@ export interface CertificateEntityProps {
   cost: number | null;
   additionalCost: number | null;
   orderNumber: string | null;
+  paymentTypeId: string | null;
+  paymentType: string | null;
   paymentDate: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -37,6 +39,8 @@ export class CertificateEntity {
   readonly cost: number | null;
   readonly additionalCost: number | null;
   readonly orderNumber: string | null;
+  readonly paymentTypeId: string | null;
+  readonly paymentType: string | null;
   readonly paymentDate: Date | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -56,6 +60,8 @@ export class CertificateEntity {
     this.cost = props.cost;
     this.additionalCost = props.additionalCost;
     this.orderNumber = props.orderNumber;
+    this.paymentTypeId = props.paymentTypeId;
+    this.paymentType = props.paymentType;
     this.paymentDate = props.paymentDate;
     this.createdAt = props.createdAt;
     this.updatedAt = props.updatedAt;
@@ -108,6 +114,8 @@ export class CertificateEntity {
       cost: this.cost,
       additionalCost: this.additionalCost,
       orderNumber: this.orderNumber,
+      paymentTypeId: this.paymentTypeId,
+      paymentType: this.paymentType,
       paymentDate: this.paymentDate?.toISOString() ?? null,
       createdAt: this.createdAt.toISOString(),
       updatedAt: this.updatedAt.toISOString(),

@@ -67,6 +67,7 @@ export interface Database {
           cost: number | null;
           additional_cost: number | null;
           order_number: string | null;
+          payment_type_id: string | null;
           payment_date: string | null;
           created_at: string;
           updated_at: string;
@@ -83,6 +84,7 @@ export interface Database {
           cost?: number | null;
           additional_cost?: number | null;
           order_number?: string | null;
+          payment_type_id?: string | null;
           payment_date?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -99,6 +101,7 @@ export interface Database {
           cost?: number | null;
           additional_cost?: number | null;
           order_number?: string | null;
+          payment_type_id?: string | null;
           payment_date?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -116,6 +119,13 @@ export interface Database {
             columns: ['certificate_type_id'];
             isOneToOne: false;
             referencedRelation: 'certificate_types';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'certificates_payment_type_id_fkey';
+            columns: ['payment_type_id'];
+            isOneToOne: false;
+            referencedRelation: 'payment_type';
             referencedColumns: ['id'];
           },
         ];

@@ -6,9 +6,11 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   getCertificate,
   listCertificateEvents,
+  listPaymentTypes,
   updateCertificate,
   type Certificate,
   type CertificateEvent,
+  type PaymentType,
 } from '../lib/api';
 
 const STATUS_CONFIG: Record<
@@ -168,7 +170,11 @@ export function CertificateDetailPage(): JSX.Element {
     additionalCost: '',
     orderNumber: '',
     paymentDate: '',
+    paymentTypeId: '',
   });
+  const [paymentTypes, setPaymentTypes] = useState<PaymentType[]>([]);
+  const [loadingPaymentTypes, setLoadingPaymentTypes] = useState(false);
+  const [paymentTypesError, setPaymentTypesError] = useState<string | null>(null);
 
   const isAdmin = user?.role === 'admin';
 
@@ -207,6 +213,7 @@ export function CertificateDetailPage(): JSX.Element {
           paymentDate: certificateResult.data.paymentDate
             ? certificateResult.data.paymentDate.slice(0, 10)
             : '',
+          paymentTypeId: certificateResult.data.paymentTypeId ?? '',
         });
       }
 
@@ -221,6 +228,37 @@ export function CertificateDetailPage(): JSX.Element {
 
     void fetchData();
   }, [token, id]);
+
+  useEffect(() => {
+    if (!token || !isAdmin) return;
+
+    let active = true;
+    const fetchPaymentTypes = async (): Promise<void> => {
+      setLoadingPaymentTypes(true);
+      const response = await listPaymentTypes(token, { limit: 100 });
+
+      if (!active) return;
+
+      if (response.error || !response.data) {
+        setPaymentTypesError(response.error ?? 'Não foi possível carregar tipos de pagamento.');
+        setPaymentTypes([]);
+      } else {
+        const enabled = response.data.data.filter(
+          (type) => type.enabled === undefined || type.enabled,
+        );
+        setPaymentTypesError(null);
+        setPaymentTypes(enabled);
+      }
+
+      setLoadingPaymentTypes(false);
+    };
+
+    void fetchPaymentTypes();
+
+    return () => {
+      active = false;
+    };
+  }, [token, isAdmin]);
 
   const sortedEvents = useMemo(() => {
     return [...events].sort(
@@ -324,6 +362,14 @@ export function CertificateDetailPage(): JSX.Element {
                     <Badge config={PRIORITY_CONFIG[certificate.priority]} />
                   </div>
                 </div>
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                    Tipo de pagamento
+                  </p>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {certificate.paymentType ?? 'Não informado'}
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -377,6 +423,7 @@ export function CertificateDetailPage(): JSX.Element {
                           ? adminForm.orderNumber.trim()
                           : undefined,
                       paymentDate: adminForm.paymentDate !== '' ? adminForm.paymentDate : undefined,
+                      paymentTypeId: adminForm.paymentTypeId,
                     };
 
                     const response = await updateCertificate(token, certificate.id, payload);
@@ -389,6 +436,20 @@ export function CertificateDetailPage(): JSX.Element {
 
                     if (response.data) {
                       setCertificate(response.data);
+                      setAdminForm((prev) => ({
+                        ...prev,
+                        status: response.data.status,
+                        cost: response.data.cost !== null ? response.data.cost.toString() : '',
+                        additionalCost:
+                          response.data.additionalCost !== null
+                            ? response.data.additionalCost.toString()
+                            : '',
+                        orderNumber: response.data.orderNumber ?? '',
+                        paymentDate: response.data.paymentDate
+                          ? response.data.paymentDate.slice(0, 10)
+                          : '',
+                        paymentTypeId: response.data.paymentTypeId ?? '',
+                      }));
                     }
 
                     const eventsResult = await listCertificateEvents(token, certificate.id);
@@ -501,6 +562,43 @@ export function CertificateDetailPage(): JSX.Element {
                       disabled={isSaving}
                     />
                   </div>
+                  <div>
+                    <label
+                      htmlFor="paymentType"
+                      className="block text-xs font-medium uppercase tracking-wide text-gray-500"
+                    >
+                      Tipo de pagamento
+                    </label>
+                    <select
+                      id="paymentType"
+                      value={adminForm.paymentTypeId}
+                      onChange={(event) => {
+                        setAdminForm((prev) => ({
+                          ...prev,
+                          paymentTypeId: event.target.value,
+                        }));
+                      }}
+                      className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                      disabled={isSaving || loadingPaymentTypes}
+                    >
+                      <option value="">
+                        {loadingPaymentTypes ? 'Carregando tipos...' : 'Selecione'}
+                      </option>
+                      {!loadingPaymentTypes && paymentTypes.length === 0 && (
+                        <option value="" disabled>
+                          Nenhum tipo disponível
+                        </option>
+                      )}
+                      {paymentTypes.map((type) => (
+                        <option key={type.id} value={type.id}>
+                          {type.name}
+                        </option>
+                      ))}
+                    </select>
+                    {paymentTypesError && (
+                      <p className="mt-1 text-xs text-red-600">{paymentTypesError}</p>
+                    )}
+                  </div>
                   <div className="flex items-end justify-between sm:col-span-2">
                     {saveError ? (
                       <p className="text-sm text-red-600">{saveError}</p>
@@ -568,6 +666,14 @@ export function CertificateDetailPage(): JSX.Element {
                       {certificate.paymentDate
                         ? new Date(certificate.paymentDate).toLocaleDateString('pt-BR')
                         : '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                      Tipo de pagamento
+                    </p>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {certificate.paymentType ?? 'Não informado'}
                     </p>
                   </div>
                 </div>

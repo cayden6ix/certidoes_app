@@ -20,6 +20,7 @@ export interface CertificateRow {
   cost?: number | null;
   additional_cost?: number | null;
   order_number?: string | null;
+  payment_type_id?: string | null;
   payment_date?: string | null;
   created_at: string;
   updated_at: string;

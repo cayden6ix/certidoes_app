@@ -73,7 +73,7 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
 
       const typedInsertedData = insertedData as Tables<'certificates'>;
       const row = this.mapDatabaseRowToCertificateRow(typedInsertedData);
-      const entity = this.mapper.mapToEntity(row, data.certificateType);
+      const entity = this.mapper.mapToEntity(row, data.certificateType, null);
 
       if (!entity) {
         return failure(CertificateError.UNEXPECTED_ERROR);
@@ -111,9 +111,13 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
       const typeNameMap = await this.typeResolver.fetchTypeNameMap(
         row.certificate_type_id ? [row.certificate_type_id] : [],
       );
+      const paymentTypeNameMap = await this.fetchPaymentTypeNameMap(
+        row.payment_type_id ? [row.payment_type_id] : [],
+      );
 
       const certificateTypeName = this.mapper.resolveCertificateTypeName(row, typeNameMap);
-      const entity = this.mapper.mapToEntity(row, certificateTypeName);
+      const paymentTypeName = this.mapper.resolvePaymentTypeName(row, paymentTypeNameMap);
+      const entity = this.mapper.mapToEntity(row, certificateTypeName, paymentTypeName);
 
       if (!entity) {
         return failure(CertificateError.UNEXPECTED_ERROR);
@@ -197,9 +201,11 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
       const typedDataList = (data ?? []) as Tables<'certificates'>[];
       const rows = typedDataList.map((row) => this.mapDatabaseRowToCertificateRow(row));
       const typeIds = this.extractTypeIds(rows);
+      const paymentTypeIds = this.extractPaymentTypeIds(rows);
       const typeNameMap = await this.typeResolver.fetchTypeNameMap(typeIds);
+      const paymentTypeNameMap = await this.fetchPaymentTypeNameMap(paymentTypeIds);
 
-      const entities = this.mapper.mapManyToEntities(rows, typeNameMap);
+      const entities = this.mapper.mapManyToEntities(rows, typeNameMap, paymentTypeNameMap);
 
       return success({
         data: entities,
@@ -247,9 +253,13 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
       const typeNameMap = await this.typeResolver.fetchTypeNameMap(
         row.certificate_type_id ? [row.certificate_type_id] : [],
       );
+      const paymentTypeNameMap = await this.fetchPaymentTypeNameMap(
+        row.payment_type_id ? [row.payment_type_id] : [],
+      );
 
       const certificateTypeName = this.mapper.resolveCertificateTypeName(row, typeNameMap);
-      const entity = this.mapper.mapToEntity(row, certificateTypeName);
+      const paymentTypeName = this.mapper.resolvePaymentTypeName(row, paymentTypeNameMap);
+      const entity = this.mapper.mapToEntity(row, certificateTypeName, paymentTypeName);
 
       if (!entity) {
         return failure(CertificateError.UNEXPECTED_ERROR);
@@ -299,6 +309,7 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
       cost: row.cost,
       additional_cost: row.additional_cost,
       order_number: row.order_number,
+      payment_type_id: row.payment_type_id ?? undefined,
       payment_date: row.payment_date,
       created_at: row.created_at,
       updated_at: row.updated_at,
@@ -319,6 +330,7 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
       party_names: data.partiesName ? [data.partiesName] : null,
       observations: data.notes ?? null,
       priority: this.mapper.mapPriorityToDb(data.priority ?? 'normal'),
+      payment_type_id: data.paymentTypeId ?? null,
     };
   }
 
@@ -376,6 +388,10 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
       updateData.payment_date = data.paymentDate.toISOString().split('T')[0];
     }
 
+    if (data.paymentTypeId !== undefined) {
+      updateData.payment_type_id = data.paymentTypeId ?? null;
+    }
+
     return success(updateData);
   }
 
@@ -386,5 +402,43 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
     return rows
       .map((row) => row.certificate_type_id)
       .filter((value): value is string => Boolean(value));
+  }
+
+  /**
+   * Extrai IDs de tipos de pagamento
+   */
+  private extractPaymentTypeIds(rows: CertificateRow[]): string[] {
+    return rows
+      .map((row) => row.payment_type_id)
+      .filter((value): value is string => Boolean(value));
+  }
+
+  /**
+   * Busca mapa id->nome de tipos de pagamento
+   */
+  private async fetchPaymentTypeNameMap(ids: string[]): Promise<Map<string, string>> {
+    const map = new Map<string, string>();
+    if (ids.length === 0) {
+      return map;
+    }
+
+    const { data, error } = await this.supabaseClient
+      .from('payment_type')
+      .select('id, name')
+      .in('id', ids);
+
+    if (error) {
+      this.logger.error('Erro ao buscar nomes de tipos de pagamento', { error: error.message });
+      return map;
+    }
+
+    (data ?? []).forEach((row) => {
+      const typedRow = row as Tables<'payment_type'>;
+      if (typedRow.id && typedRow.name) {
+        map.set(typedRow.id, typedRow.name);
+      }
+    });
+
+    return map;
   }
 }

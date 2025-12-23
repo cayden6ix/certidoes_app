@@ -13,6 +13,8 @@ export interface CertificateResponseDto {
   cost: number | null;
   additionalCost: number | null;
   orderNumber: string | null;
+  paymentTypeId: string | null;
+  paymentType: string | null;
   paymentDate: string | null;
   createdAt: string;
   updatedAt: string;

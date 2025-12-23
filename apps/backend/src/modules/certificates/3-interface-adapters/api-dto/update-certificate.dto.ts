@@ -69,4 +69,8 @@ export class UpdateCertificateAdminApiDto extends UpdateCertificateClientApiDto 
   @IsOptional()
   @IsDateString({}, { message: 'Data de pagamento deve ser uma data válida (ISO 8601)' })
   paymentDate?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Tipo de pagamento deve ser uma string' })
+  paymentTypeId?: string | null;
 }

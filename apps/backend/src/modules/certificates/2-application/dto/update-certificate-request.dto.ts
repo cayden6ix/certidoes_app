@@ -18,6 +18,7 @@ export class UpdateCertificateRequestDto {
       additionalCost?: number;
       orderNumber?: string;
       paymentDate?: Date;
+      paymentTypeId?: string | null;
     },
   ) {}
 }

@@ -66,7 +66,7 @@ export class UpdateCertificateUseCase {
     }
 
     // Filtra campos que cliente NÃO pode editar
-    // Cliente não pode alterar: status, cost, additionalCost, orderNumber, paymentDate
+    // Cliente não pode alterar: status, cost, additionalCost, orderNumber, paymentDate, paymentTypeId
     const allowedData = isAdmin
       ? request.data
       : {
@@ -117,6 +117,7 @@ export class UpdateCertificateUseCase {
       cost: certificate.cost,
       additionalCost: certificate.additionalCost,
       orderNumber: certificate.orderNumber,
+      paymentType: certificate.paymentType,
       paymentDate: certificate.paymentDate ? certificate.paymentDate.toISOString() : null,
     };
     const updatedSnapshot = {
@@ -129,12 +130,25 @@ export class UpdateCertificateUseCase {
       cost: updateResult.data.cost,
       additionalCost: updateResult.data.additionalCost,
       orderNumber: updateResult.data.orderNumber,
+      paymentType: updateResult.data.paymentType,
       paymentDate: updateResult.data.paymentDate
         ? updateResult.data.paymentDate.toISOString()
         : null,
     };
 
     const changes = changeFields.reduce<Record<string, unknown>>((acc, field) => {
+      if (field === 'paymentTypeId') {
+        acc.paymentType = {
+          before: certificate.paymentType ?? certificate.paymentTypeId ?? null,
+          after:
+            updateResult.data.paymentType ??
+            updateResult.data.paymentTypeId ??
+            cleanData.paymentTypeId ??
+            null,
+        };
+        return acc;
+      }
+
       acc[field] = {
         before: (previousSnapshot as Record<string, unknown>)[field],
         after: (updatedSnapshot as Record<string, unknown>)[field],
@@ -143,9 +157,7 @@ export class UpdateCertificateUseCase {
     }, {});
 
     const eventType =
-      changeFields.length === 1 && changeFields[0] === 'status'
-        ? 'status_changed'
-        : 'updated';
+      changeFields.length === 1 && changeFields[0] === 'status' ? 'status_changed' : 'updated';
 
     const eventResult = await this.certificateEventRepository.create({
       certificateId: request.certificateId,

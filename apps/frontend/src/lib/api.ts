@@ -159,6 +159,8 @@ export interface Certificate {
   cost: number | null;
   additionalCost: number | null;
   orderNumber: string | null;
+  paymentTypeId: string | null;
+  paymentType: string | null;
   paymentDate: string | null;
   createdAt: string;
   updatedAt: string;
@@ -200,6 +202,7 @@ export interface UpdateCertificateRequest {
   additionalCost?: number;
   orderNumber?: string;
   paymentDate?: string;
+  paymentTypeId?: string | null;
 }
 
 export interface ListCertificatesParams {
