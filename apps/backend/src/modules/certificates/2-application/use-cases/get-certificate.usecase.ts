@@ -11,7 +11,7 @@ import { CertificateError } from '../../1-domain/errors/certificate-errors.enum'
 export interface GetCertificateRequestDto {
   certificateId: string;
   userId: string;
-  userRole: string;
+  userRole: 'client' | 'admin';
 }
 
 /**

@@ -12,7 +12,7 @@ export interface TokenPayload {
   /**
    * Role do usuário
    */
-  role: string;
+  role: 'client' | 'admin';
 
   /**
    * Email do usuário

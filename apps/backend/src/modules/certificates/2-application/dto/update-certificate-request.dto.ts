@@ -6,7 +6,7 @@ export class UpdateCertificateRequestDto {
   constructor(
     public readonly certificateId: string,
     public readonly userId: string,
-    public readonly userRole: string,
+    public readonly userRole: 'client' | 'admin',
     public readonly data: {
       certificateType?: string;
       recordNumber?: string;

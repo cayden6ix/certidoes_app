@@ -2,6 +2,7 @@ import type { Result } from '../../../../shared/1-domain/types/result.type';
 import { failure } from '../../../../shared/1-domain/types/result.type';
 import type { LoggerContract } from '../../../../shared/1-domain/contracts/logger.contract';
 import type { CertificateRepositoryContract } from '../../1-domain/contracts/certificate.repository.contract';
+import type { CertificateEventRepositoryContract } from '../../1-domain/contracts/certificate-event.repository.contract';
 import type { CertificateEntity } from '../../1-domain/entities/certificate.entity';
 import { CertificateError } from '../../1-domain/errors/certificate-errors.enum';
 import type { UpdateCertificateRequestDto } from '../dto/update-certificate-request.dto';
@@ -13,6 +14,7 @@ import type { UpdateCertificateRequestDto } from '../dto/update-certificate-requ
 export class UpdateCertificateUseCase {
   constructor(
     private readonly certificateRepository: CertificateRepositoryContract,
+    private readonly certificateEventRepository: CertificateEventRepositoryContract,
     private readonly logger: LoggerContract,
   ) {}
 
@@ -103,6 +105,63 @@ export class UpdateCertificateUseCase {
       userId: request.userId,
       updatedFields: Object.keys(cleanData),
     });
+
+    const changeFields = Object.keys(cleanData);
+    const previousSnapshot = {
+      certificateType: certificate.certificateType,
+      recordNumber: certificate.recordNumber,
+      partiesName: certificate.partiesName,
+      notes: certificate.notes,
+      priority: certificate.priority.getValue(),
+      status: certificate.status.getValue(),
+      cost: certificate.cost,
+      additionalCost: certificate.additionalCost,
+      orderNumber: certificate.orderNumber,
+      paymentDate: certificate.paymentDate ? certificate.paymentDate.toISOString() : null,
+    };
+    const updatedSnapshot = {
+      certificateType: updateResult.data.certificateType,
+      recordNumber: updateResult.data.recordNumber,
+      partiesName: updateResult.data.partiesName,
+      notes: updateResult.data.notes,
+      priority: updateResult.data.priority.getValue(),
+      status: updateResult.data.status.getValue(),
+      cost: updateResult.data.cost,
+      additionalCost: updateResult.data.additionalCost,
+      orderNumber: updateResult.data.orderNumber,
+      paymentDate: updateResult.data.paymentDate
+        ? updateResult.data.paymentDate.toISOString()
+        : null,
+    };
+
+    const changes = changeFields.reduce<Record<string, unknown>>((acc, field) => {
+      acc[field] = {
+        before: (previousSnapshot as Record<string, unknown>)[field],
+        after: (updatedSnapshot as Record<string, unknown>)[field],
+      };
+      return acc;
+    }, {});
+
+    const eventType =
+      changeFields.length === 1 && changeFields[0] === 'status'
+        ? 'status_changed'
+        : 'updated';
+
+    const eventResult = await this.certificateEventRepository.create({
+      certificateId: request.certificateId,
+      actorUserId: request.userId,
+      actorRole: request.userRole,
+      eventType,
+      changes,
+    });
+
+    if (!eventResult.success) {
+      this.logger.warn('Falha ao registrar evento de atualização de certidão', {
+        certificateId: request.certificateId,
+        userId: request.userId,
+        error: eventResult.error,
+      });
+    }
 
     return updateResult;
   }

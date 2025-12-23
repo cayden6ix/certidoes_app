@@ -12,7 +12,7 @@ export class AuthResponseDto {
     id: string;
     email: string;
     fullName: string;
-    role: string;
+    role: 'client' | 'admin';
     createdAt: Date;
   };
 

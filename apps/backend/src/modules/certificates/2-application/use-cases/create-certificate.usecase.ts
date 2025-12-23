@@ -2,6 +2,7 @@ import type { Result } from '../../../../shared/1-domain/types/result.type';
 import { failure } from '../../../../shared/1-domain/types/result.type';
 import type { LoggerContract } from '../../../../shared/1-domain/contracts/logger.contract';
 import type { CertificateRepositoryContract } from '../../1-domain/contracts/certificate.repository.contract';
+import type { CertificateEventRepositoryContract } from '../../1-domain/contracts/certificate-event.repository.contract';
 import type { CertificateEntity } from '../../1-domain/entities/certificate.entity';
 import { CertificateError } from '../../1-domain/errors/certificate-errors.enum';
 import type { CreateCertificateRequestDto } from '../dto/create-certificate-request.dto';
@@ -13,6 +14,7 @@ import type { CreateCertificateRequestDto } from '../dto/create-certificate-requ
 export class CreateCertificateUseCase {
   constructor(
     private readonly certificateRepository: CertificateRepositoryContract,
+    private readonly certificateEventRepository: CertificateEventRepositoryContract,
     private readonly logger: LoggerContract,
   ) {}
 
@@ -66,6 +68,31 @@ export class CreateCertificateUseCase {
       userId: request.userId,
       certificateType: request.certificateType,
     });
+
+    const eventResult = await this.certificateEventRepository.create({
+      certificateId: result.data.id,
+      actorUserId: request.userId,
+      actorRole: request.userRole,
+      eventType: 'created',
+      changes: {
+        after: {
+          certificateType: result.data.certificateType,
+          recordNumber: result.data.recordNumber,
+          partiesName: result.data.partiesName,
+          notes: result.data.notes,
+          priority: result.data.priority.getValue(),
+          status: result.data.status.getValue(),
+        },
+      },
+    });
+
+    if (!eventResult.success) {
+      this.logger.warn('Falha ao registrar evento de criação de certidão', {
+        certificateId: result.data.id,
+        userId: request.userId,
+        error: eventResult.error,
+      });
+    }
 
     return result;
   }

@@ -1,5 +1,3 @@
-import { ConfigService } from '@nestjs/config';
-import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Result } from '../../../../shared/1-domain/types/result.type';
 import { failure, success } from '../../../../shared/1-domain/types/result.type';
@@ -31,20 +29,10 @@ export class SupabaseAuthRepository implements AuthRepositoryContract {
   private supabaseClient: SupabaseClient;
 
   constructor(
-    private readonly configService: ConfigService,
+    supabaseClient: SupabaseClient,
     private readonly logger: LoggerContract,
   ) {
-    const supabaseUrl = this.configService.get<string>('supabase.url');
-    const supabaseServiceRoleKey = this.configService.get<string>(
-      'supabase.serviceRoleKey',
-    );
-
-    if (!supabaseUrl || !supabaseServiceRoleKey) {
-      throw new Error('Variáveis de ambiente do Supabase não configuradas');
-    }
-
-    // Cria cliente com serviceRoleKey para acesso administrativo
-    this.supabaseClient = createClient(supabaseUrl, supabaseServiceRoleKey);
+    this.supabaseClient = supabaseClient;
 
     this.logger.debug('Repositório de autenticação Supabase inicializado');
   }

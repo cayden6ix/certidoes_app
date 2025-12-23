@@ -5,7 +5,7 @@
 export class ListCertificatesRequestDto {
   constructor(
     public readonly userId: string,
-    public readonly userRole: string,
+    public readonly userRole: 'client' | 'admin',
     public readonly filters: {
       status?: string;
       priority?: string;

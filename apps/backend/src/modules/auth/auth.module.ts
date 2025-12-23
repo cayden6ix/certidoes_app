@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthController } from './3-interface-adapters/web-controllers/auth.controller';
 import { authProviders } from './4-infrastructure/di/auth.providers';
+import { SupabaseModule } from '../supabase/supabase.module';
 import {
   AUTH_REPOSITORY_CONTRACT,
   TOKEN_SERVICE_CONTRACT,
@@ -15,7 +16,7 @@ import {
  * Fornece guards, decorators e use cases para proteger rotas
  */
 @Module({
-  imports: [],
+  imports: [SupabaseModule],
   controllers: [AuthController],
   providers: [...authProviders],
   exports: [

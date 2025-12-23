@@ -18,14 +18,17 @@ import {
   LIST_CERTIFICATES_USECASE,
   GET_CERTIFICATE_USECASE,
   UPDATE_CERTIFICATE_USECASE,
+  LIST_CERTIFICATE_EVENTS_USECASE,
 } from '../../4-infrastructure/di/certificates.tokens';
 import type { CreateCertificateUseCase } from '../../2-application/use-cases/create-certificate.usecase';
 import type { ListCertificatesUseCase } from '../../2-application/use-cases/list-certificates.usecase';
 import type { GetCertificateUseCase } from '../../2-application/use-cases/get-certificate.usecase';
 import type { UpdateCertificateUseCase } from '../../2-application/use-cases/update-certificate.usecase';
+import type { ListCertificateEventsUseCase } from '../../2-application/use-cases/list-certificate-events.usecase';
 import { CreateCertificateRequestDto } from '../../2-application/dto/create-certificate-request.dto';
 import { ListCertificatesRequestDto } from '../../2-application/dto/list-certificates-request.dto';
 import { UpdateCertificateRequestDto } from '../../2-application/dto/update-certificate-request.dto';
+import { ListCertificateEventsRequestDto } from '../../2-application/dto/list-certificate-events-request.dto';
 import { JwtAuthGuard } from '../../../auth/3-interface-adapters/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../auth/3-interface-adapters/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../../auth/3-interface-adapters/types/express-request.types';
@@ -51,6 +54,8 @@ export class CertificatesController {
     private readonly getCertificateUseCase: GetCertificateUseCase,
     @Inject(UPDATE_CERTIFICATE_USECASE)
     private readonly updateCertificateUseCase: UpdateCertificateUseCase,
+    @Inject(LIST_CERTIFICATE_EVENTS_USECASE)
+    private readonly listCertificateEventsUseCase: ListCertificateEventsUseCase,
     @Inject(LOGGER_CONTRACT)
     private readonly logger: LoggerContract,
   ) {}
@@ -75,6 +80,7 @@ export class CertificatesController {
 
     const request = new CreateCertificateRequestDto(
       user.userId,
+      user.role,
       dto.certificateType,
       dto.recordNumber,
       dto.partiesName,
@@ -157,6 +163,34 @@ export class CertificatesController {
     const certificate = CertificateResultToHttpHelper.handle(result);
 
     return certificate.toDTO();
+  }
+
+  /**
+   * Lista eventos de uma certidão
+   * GET /certificates/:id/events (com prefixo global: /api/certificates/:id/events)
+   * Cliente: apenas se for dono
+   * Admin: qualquer certidão
+   * @param id - ID da certidão (UUID)
+   * @param user - Usuário autenticado
+   * @returns Lista de eventos da certidão
+   */
+  @Get(':id/events')
+  @HttpCode(200)
+  async listEvents(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    this.logger.debug('Requisição de eventos da certidão', {
+      certificateId: id,
+      userId: user.userId,
+      userRole: user.role,
+    });
+
+    const request = new ListCertificateEventsRequestDto(id, user.userId, user.role);
+    const result = await this.listCertificateEventsUseCase.execute(request);
+    const events = CertificateResultToHttpHelper.handle(result);
+
+    return events.map((event) => event.toDTO());
   }
 
   /**

@@ -13,7 +13,7 @@ export interface AuthenticatedUser {
   /**
    * Role do usuário (client ou admin)
    */
-  role: string;
+  role: 'client' | 'admin';
 
   /**
    * Email do usuário

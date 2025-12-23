@@ -1,5 +1,3 @@
-import { ConfigService } from '@nestjs/config';
-import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Result } from '../../../../shared/1-domain/types/result.type';
 import { failure, success } from '../../../../shared/1-domain/types/result.type';
@@ -21,19 +19,10 @@ export class SupabaseTokenService implements TokenServiceContract {
   private supabaseClient: SupabaseClient;
 
   constructor(
-    private readonly configService: ConfigService,
+    supabaseClient: SupabaseClient,
     private readonly logger: LoggerContract,
   ) {
-    const supabaseUrl = this.configService.get<string>('supabase.url');
-    const supabaseServiceRoleKey = this.configService.get<string>(
-      'supabase.serviceRoleKey',
-    );
-
-    if (!supabaseUrl || !supabaseServiceRoleKey) {
-      throw new Error('Variáveis de ambiente do Supabase não configuradas');
-    }
-
-    this.supabaseClient = createClient(supabaseUrl, supabaseServiceRoleKey);
+    this.supabaseClient = supabaseClient;
 
     this.logger.debug('Serviço de tokens Supabase inicializado');
   }

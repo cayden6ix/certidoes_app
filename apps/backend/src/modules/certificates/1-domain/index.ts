@@ -1,6 +1,8 @@
 // Entities
 export { CertificateEntity } from './entities/certificate.entity';
 export type { CertificateEntityProps } from './entities/certificate.entity';
+export { CertificateEventEntity } from './entities/certificate-event.entity';
+export type { CertificateEventEntityProps } from './entities/certificate-event.entity';
 
 // Value Objects
 export { CertificateStatusValueObject } from './value-objects/certificate-status.value-object';
@@ -16,6 +18,10 @@ export type {
   ListCertificatesOptions,
   PaginatedCertificates,
 } from './contracts/certificate.repository.contract';
+export type {
+  CertificateEventRepositoryContract,
+  CreateCertificateEventData,
+} from './contracts/certificate-event.repository.contract';
 
 // Errors
 export { CertificateError } from './errors/certificate-errors.enum';
