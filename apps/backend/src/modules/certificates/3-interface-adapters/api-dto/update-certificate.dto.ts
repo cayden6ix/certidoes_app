@@ -16,7 +16,7 @@ import {
 export class UpdateCertificateClientApiDto {
   @IsOptional()
   @IsString({ message: 'Tipo de certidão deve ser uma string' })
-  @MaxLength(100, { message: 'Tipo de certidão deve ter no máximo 100 caracteres' })
+  @MaxLength(255, { message: 'Tipo de certidão deve ter no máximo 255 caracteres' })
   certificateType?: string;
 
   @IsOptional()

@@ -7,7 +7,7 @@ import { IsString, IsNotEmpty, IsOptional, IsIn, MaxLength } from 'class-validat
 export class CreateCertificateApiDto {
   @IsNotEmpty({ message: 'Tipo de certidão é obrigatório' })
   @IsString({ message: 'Tipo de certidão deve ser uma string' })
-  @MaxLength(100, { message: 'Tipo de certidão deve ter no máximo 100 caracteres' })
+  @MaxLength(255, { message: 'Tipo de certidão deve ter no máximo 255 caracteres' })
   certificateType!: string;
 
   @IsNotEmpty({ message: 'Número da ficha é obrigatório' })
