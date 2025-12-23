@@ -192,7 +192,6 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
           const typeIds = await this.findCertificateTypeIdsBySearch(searchValue);
           const searchConditions = [
             `record_number.ilike.%${searchValue}%`,
-            `order_number.ilike.%${searchValue}%`,
             `party_names.cs.{${this.formatArraySearchValue(searchValue)}}`,
           ];
 

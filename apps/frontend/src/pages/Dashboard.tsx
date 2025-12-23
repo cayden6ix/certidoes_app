@@ -61,6 +61,11 @@ export function DashboardPage(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [search, setSearch] = useState<string>('');
+  const [fromDate, setFromDate] = useState<string>('');
+  const [toDate, setToDate] = useState<string>('');
+  const [page, setPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(20);
 
   const isAdmin = user?.role === 'admin';
 
@@ -71,8 +76,12 @@ export function DashboardPage(): JSX.Element {
     setError(null);
 
     const result = await listCertificates(token, {
+      search: search.trim() || undefined,
+      from: fromDate || undefined,
+      to: toDate || undefined,
       status: statusFilter || undefined,
-      limit: 50,
+      page,
+      pageSize,
     });
 
     if (result.error) {
@@ -88,7 +97,7 @@ export function DashboardPage(): JSX.Element {
     }
 
     setLoading(false);
-  }, [token, statusFilter]);
+  }, [token, statusFilter, search, fromDate, toDate, page, pageSize]);
 
   useEffect(() => {
     void fetchCertificates();
@@ -101,6 +110,8 @@ export function DashboardPage(): JSX.Element {
     in_progress: certificates.filter((c) => c.status === 'in_progress').length,
     completed: certificates.filter((c) => c.status === 'completed').length,
   };
+
+  const totalPages = pagination ? Math.max(1, Math.ceil(pagination.total / pageSize)) : 1;
 
   return (
     <Layout>
@@ -148,29 +159,91 @@ export function DashboardPage(): JSX.Element {
         </div>
 
         {/* Filtros */}
-        <div className="flex items-center space-x-4">
-          <label htmlFor="statusFilter" className="text-sm font-medium text-gray-700">
-            Filtrar por status:
-          </label>
-          <select
-            id="statusFilter"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
-          >
-            <option value="">Todos</option>
-            <option value="pending">Pendente</option>
-            <option value="in_progress">Em Andamento</option>
-            <option value="completed">Concluída</option>
-            <option value="canceled">Cancelada</option>
-          </select>
-          <button
-            type="button"
-            onClick={() => void fetchCertificates()}
-            className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Atualizar
-          </button>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+          <div className="sm:col-span-2 lg:col-span-2">
+            <label htmlFor="search" className="block text-sm font-medium text-gray-700">
+              Buscar
+            </label>
+            <input
+              id="search"
+              type="text"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              placeholder="Ficha, partes ou tipo"
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label htmlFor="fromDate" className="block text-sm font-medium text-gray-700">
+              De
+            </label>
+            <input
+              id="fromDate"
+              type="date"
+              value={fromDate}
+              onChange={(e) => {
+                setFromDate(e.target.value);
+                setPage(1);
+              }}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label htmlFor="toDate" className="block text-sm font-medium text-gray-700">
+              Até
+            </label>
+            <input
+              id="toDate"
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setPage(1);
+              }}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label htmlFor="statusFilter" className="block text-sm font-medium text-gray-700">
+              Status
+            </label>
+            <select
+              id="statusFilter"
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+            >
+              <option value="">Todos</option>
+              <option value="pending">Pendente</option>
+              <option value="in_progress">Em Andamento</option>
+              <option value="completed">Concluída</option>
+              <option value="canceled">Cancelada</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="pageSize" className="block text-sm font-medium text-gray-700">
+              Por página
+            </label>
+            <select
+              id="pageSize"
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(parseInt(e.target.value, 10));
+                setPage(1);
+              }}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
+          </div>
         </div>
 
         {/* Lista de Certidões */}
@@ -305,12 +378,33 @@ export function DashboardPage(): JSX.Element {
 
           {/* Paginação */}
           {pagination && pagination.total > 0 && (
-            <div className="border-t border-gray-200 bg-gray-50 px-6 py-3">
+            <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-6 py-3">
               <p className="text-sm text-gray-700">
                 Mostrando{' '}
                 <span className="font-medium">{Math.min(certificates.length, pagination.limit)}</span>{' '}
                 de <span className="font-medium">{pagination.total}</span> resultados
               </p>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                  disabled={page <= 1}
+                  className="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Anterior
+                </button>
+                <span className="text-sm text-gray-600">
+                  Página {page} de {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={page >= totalPages}
+                  className="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Próxima
+                </button>
+              </div>
             </div>
           )}
         </div>
