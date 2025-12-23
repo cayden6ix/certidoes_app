@@ -1,13 +1,19 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { Layout } from '../components/Layout';
+import { useAuth } from '../contexts/AuthContext';
+import { createCertificate, type CreateCertificateRequest } from '../lib/api';
 
 /**
- * Página de Solicitação de Certidão (placeholder)
- * Será completamente implementada na Sprint 3
+ * Página de Solicitação de Certidão
+ * Permite que clientes criem novas solicitações de certidão
  */
 export function RequestCertificatePage(): JSX.Element {
-  const [formData, setFormData] = useState({
+  const { token } = useAuth();
+  const navigate = useNavigate();
+
+  const [formData, setFormData] = useState<CreateCertificateRequest>({
     certificateType: '',
     recordNumber: '',
     partiesName: '',
@@ -15,31 +21,121 @@ export function RequestCertificatePage(): JSX.Element {
     priority: 'normal',
   });
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
   ): void => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    setError(null);
   };
 
-  const handleSubmit = (e: React.FormEvent): void => {
+  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
-    // TODO: Implementar envio para API na Sprint 3
+
+    if (!token) {
+      setError('Sessão expirada. Por favor, faça login novamente.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    const response = await createCertificate(token, {
+      certificateType: formData.certificateType,
+      recordNumber: formData.recordNumber,
+      partiesName: formData.partiesName,
+      notes: formData.notes || undefined,
+      priority: formData.priority,
+    });
+
+    setIsSubmitting(false);
+
+    if (response.error) {
+      setError(response.error);
+      return;
+    }
+
+    setSuccess(true);
+
+    // Redireciona para o dashboard após 2 segundos
+    setTimeout(() => {
+      navigate('/dashboard');
+    }, 2000);
   };
+
+  if (success) {
+    return (
+      <Layout>
+        <div className="flex min-h-[400px] items-center justify-center">
+          <div className="rounded-lg bg-green-50 p-8 text-center">
+            <svg
+              className="mx-auto h-12 w-12 text-green-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <h2 className="mt-4 text-xl font-semibold text-green-800">
+              Solicitação enviada com sucesso!
+            </h2>
+            <p className="mt-2 text-green-600">Redirecionando para o dashboard...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Solicitar Certidão</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-900">Solicitar Certidão</h1>
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard')}
+            className="text-sm text-gray-500 hover:text-gray-700"
+          >
+            Voltar ao Dashboard
+          </button>
+        </div>
 
         <div className="rounded-lg bg-white p-6 shadow">
+          {error && (
+            <div className="mb-6 rounded-md bg-red-50 p-4">
+              <div className="flex">
+                <svg
+                  className="h-5 w-5 text-red-400"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <p className="ml-3 text-sm text-red-700">{error}</p>
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label
                 htmlFor="certificateType"
                 className="block text-sm font-medium text-gray-700"
               >
-                Tipo de Certidão
+                Tipo de Certidão <span className="text-red-500">*</span>
               </label>
               <select
                 id="certificateType"
@@ -48,18 +144,21 @@ export function RequestCertificatePage(): JSX.Element {
                 onChange={handleChange}
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
                 required
+                disabled={isSubmitting}
               >
                 <option value="">Selecione o tipo</option>
-                <option value="nascimento">Certidão de Nascimento</option>
-                <option value="casamento">Certidão de Casamento</option>
-                <option value="obito">Certidão de Óbito</option>
-                <option value="inteiro_teor">Inteiro Teor</option>
+                <option value="Certidão de Nascimento">Certidão de Nascimento</option>
+                <option value="Certidão de Casamento">Certidão de Casamento</option>
+                <option value="Certidão de Óbito">Certidão de Óbito</option>
+                <option value="Inteiro Teor">Inteiro Teor</option>
+                <option value="Certidão de Averbação">Certidão de Averbação</option>
+                <option value="Segunda Via">Segunda Via</option>
               </select>
             </div>
 
             <div>
               <label htmlFor="recordNumber" className="block text-sm font-medium text-gray-700">
-                Nº da Ficha
+                Nº da Ficha <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -70,12 +169,13 @@ export function RequestCertificatePage(): JSX.Element {
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
                 placeholder="Ex: 12345"
                 required
+                disabled={isSubmitting}
               />
             </div>
 
             <div>
               <label htmlFor="partiesName" className="block text-sm font-medium text-gray-700">
-                Nome das Partes
+                Nome das Partes <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -86,6 +186,7 @@ export function RequestCertificatePage(): JSX.Element {
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
                 placeholder="Nome completo das partes envolvidas"
                 required
+                disabled={isSubmitting}
               />
             </div>
 
@@ -101,6 +202,7 @@ export function RequestCertificatePage(): JSX.Element {
                 onChange={handleChange}
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
                 placeholder="Informações adicionais..."
+                disabled={isSubmitting}
               />
             </div>
 
@@ -114,25 +216,61 @@ export function RequestCertificatePage(): JSX.Element {
                 value={formData.priority}
                 onChange={handleChange}
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
+                disabled={isSubmitting}
               >
                 <option value="normal">Normal</option>
                 <option value="urgent">Urgente</option>
               </select>
+              {formData.priority === 'urgent' && (
+                <p className="mt-1 text-xs text-amber-600">
+                  Solicitações urgentes podem ter custo adicional.
+                </p>
+              )}
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex justify-end space-x-4">
+              <button
+                type="button"
+                onClick={() => navigate('/dashboard')}
+                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                disabled={isSubmitting}
+              >
+                Cancelar
+              </button>
               <button
                 type="submit"
-                className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+                className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={isSubmitting}
               >
-                Enviar Solicitação
+                {isSubmitting ? (
+                  <span className="flex items-center">
+                    <svg
+                      className="mr-2 h-4 w-4 animate-spin"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    Enviando...
+                  </span>
+                ) : (
+                  'Enviar Solicitação'
+                )}
               </button>
             </div>
           </form>
-
-          <p className="mt-4 text-center text-xs text-gray-500">
-            Funcionalidade completa será implementada na Sprint 3
-          </p>
         </div>
       </div>
     </Layout>

@@ -1,105 +1,318 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 
 import { Layout } from '../components/Layout';
-import { checkApiHealth, type HealthResponse } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
+import {
+  listCertificates,
+  type Certificate,
+  type PaginatedCertificates,
+} from '../lib/api';
 
 /**
- * Página de Dashboard (placeholder)
- * Exibe status da API conforme Sprint 1
+ * Mapeia status para cores e labels
+ */
+const STATUS_CONFIG: Record<
+  Certificate['status'],
+  { label: string; bgColor: string; textColor: string }
+> = {
+  pending: { label: 'Pendente', bgColor: 'bg-yellow-100', textColor: 'text-yellow-800' },
+  in_progress: { label: 'Em Andamento', bgColor: 'bg-blue-100', textColor: 'text-blue-800' },
+  completed: { label: 'Concluída', bgColor: 'bg-green-100', textColor: 'text-green-800' },
+  canceled: { label: 'Cancelada', bgColor: 'bg-red-100', textColor: 'text-red-800' },
+};
+
+/**
+ * Mapeia prioridade para cores e labels
+ */
+const PRIORITY_CONFIG: Record<
+  Certificate['priority'],
+  { label: string; bgColor: string; textColor: string }
+> = {
+  normal: { label: 'Normal', bgColor: 'bg-gray-100', textColor: 'text-gray-800' },
+  urgent: { label: 'Urgente', bgColor: 'bg-orange-100', textColor: 'text-orange-800' },
+};
+
+/**
+ * Componente de Badge para status/prioridade
+ */
+function Badge({
+  config,
+}: {
+  config: { label: string; bgColor: string; textColor: string };
+}): JSX.Element {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${config.bgColor} ${config.textColor}`}
+    >
+      {config.label}
+    </span>
+  );
+}
+
+/**
+ * Página de Dashboard
+ * Exibe lista de certidões do usuário/admin
  */
 export function DashboardPage(): JSX.Element {
-  const [apiStatus, setApiStatus] = useState<HealthResponse | null>(null);
+  const { token, user } = useAuth();
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [pagination, setPagination] = useState<Omit<PaginatedCertificates, 'data'> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('');
+
+  const isAdmin = user?.role === 'admin';
+
+  const fetchCertificates = useCallback(async (): Promise<void> => {
+    if (!token) return;
+
+    setLoading(true);
+    setError(null);
+
+    const result = await listCertificates(token, {
+      status: statusFilter || undefined,
+      limit: 50,
+    });
+
+    if (result.error) {
+      setError(result.error);
+      setCertificates([]);
+    } else if (result.data) {
+      setCertificates(result.data.data);
+      setPagination({
+        total: result.data.total,
+        limit: result.data.limit,
+        offset: result.data.offset,
+      });
+    }
+
+    setLoading(false);
+  }, [token, statusFilter]);
 
   useEffect(() => {
-    const fetchHealth = async (): Promise<void> => {
-      try {
-        const result = await checkApiHealth();
-        if (result.error) {
-          setError(result.error);
-        } else if (result.data) {
-          setApiStatus(result.data);
-        } else {
-          setError('Resposta vazia da API');
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Erro ao conectar com API';
-        setError(message);
-      } finally {
-        setLoading(false);
-      }
-    };
+    void fetchCertificates();
+  }, [fetchCertificates]);
 
-    void fetchHealth();
-  }, []);
+  // Contadores por status
+  const counts = {
+    total: pagination?.total ?? 0,
+    pending: certificates.filter((c) => c.status === 'pending').length,
+    in_progress: certificates.filter((c) => c.status === 'in_progress').length,
+    completed: certificates.filter((c) => c.status === 'completed').length,
+  };
 
   return (
     <Layout>
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {isAdmin ? 'Painel Administrativo' : 'Minhas Certidões'}
+            </h1>
+            <p className="mt-1 text-sm text-gray-500">
+              {isAdmin
+                ? 'Gerencie todas as solicitações de certidões'
+                : 'Acompanhe suas solicitações de certidões'}
+            </p>
+          </div>
+          {!isAdmin && (
+            <Link
+              to="/request-certificate"
+              className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500"
+            >
+              Nova Solicitação
+            </Link>
+          )}
+        </div>
 
-        {/* Card de Status da API */}
-        <div className="rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-4 text-lg font-medium text-gray-900">Status da API</h2>
+        {/* Cards de Estatísticas */}
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-lg bg-white p-6 shadow">
+            <h3 className="text-sm font-medium text-gray-500">Total de Certidões</h3>
+            <p className="mt-2 text-3xl font-bold text-gray-900">{counts.total}</p>
+          </div>
+          <div className="rounded-lg bg-white p-6 shadow">
+            <h3 className="text-sm font-medium text-gray-500">Pendentes</h3>
+            <p className="mt-2 text-3xl font-bold text-yellow-600">{counts.pending}</p>
+          </div>
+          <div className="rounded-lg bg-white p-6 shadow">
+            <h3 className="text-sm font-medium text-gray-500">Em Andamento</h3>
+            <p className="mt-2 text-3xl font-bold text-blue-600">{counts.in_progress}</p>
+          </div>
+          <div className="rounded-lg bg-white p-6 shadow">
+            <h3 className="text-sm font-medium text-gray-500">Concluídas</h3>
+            <p className="mt-2 text-3xl font-bold text-green-600">{counts.completed}</p>
+          </div>
+        </div>
 
+        {/* Filtros */}
+        <div className="flex items-center space-x-4">
+          <label htmlFor="statusFilter" className="text-sm font-medium text-gray-700">
+            Filtrar por status:
+          </label>
+          <select
+            id="statusFilter"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+          >
+            <option value="">Todos</option>
+            <option value="pending">Pendente</option>
+            <option value="in_progress">Em Andamento</option>
+            <option value="completed">Concluída</option>
+            <option value="canceled">Cancelada</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => void fetchCertificates()}
+            className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Atualizar
+          </button>
+        </div>
+
+        {/* Lista de Certidões */}
+        <div className="rounded-lg bg-white shadow">
           {loading && (
-            <div className="flex items-center space-x-2">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-600 border-t-transparent"></div>
-              <span className="text-gray-500">Verificando conexão...</span>
+            <div className="flex items-center justify-center p-12">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-600 border-t-transparent"></div>
+              <span className="ml-3 text-gray-500">Carregando certidões...</span>
             </div>
           )}
 
           {error && (
-            <div className="flex items-center space-x-2 text-red-600">
-              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              <span>API offline: {error}</span>
-            </div>
-          )}
-
-          {apiStatus && (
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2 text-green-600">
-                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+            <div className="p-6 text-center">
+              <div className="mx-auto h-12 w-12 text-red-400">
+                <svg fill="currentColor" viewBox="0 0 20 20">
                   <path
                     fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
                     clipRule="evenodd"
                   />
                 </svg>
-                <span className="font-medium">API ok</span>
               </div>
-              <div className="text-sm text-gray-500">
-                <p>Ambiente: {apiStatus.env}</p>
-                <p>Última verificação: {new Date(apiStatus.timestamp).toLocaleString('pt-BR')}</p>
-              </div>
+              <p className="mt-4 text-red-600">{error}</p>
+              <button
+                type="button"
+                onClick={() => void fetchCertificates()}
+                className="mt-4 text-sm text-primary-600 hover:text-primary-500"
+              >
+                Tentar novamente
+              </button>
             </div>
           )}
-        </div>
 
-        {/* Cards placeholder para métricas futuras */}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          <div className="rounded-lg bg-white p-6 shadow">
-            <h3 className="text-sm font-medium text-gray-500">Total de Certidões</h3>
-            <p className="mt-2 text-3xl font-bold text-gray-900">--</p>
-            <p className="mt-1 text-xs text-gray-400">Será implementado na Sprint 3</p>
-          </div>
-          <div className="rounded-lg bg-white p-6 shadow">
-            <h3 className="text-sm font-medium text-gray-500">Pendentes</h3>
-            <p className="mt-2 text-3xl font-bold text-yellow-600">--</p>
-            <p className="mt-1 text-xs text-gray-400">Será implementado na Sprint 3</p>
-          </div>
-          <div className="rounded-lg bg-white p-6 shadow">
-            <h3 className="text-sm font-medium text-gray-500">Concluídas</h3>
-            <p className="mt-2 text-3xl font-bold text-green-600">--</p>
-            <p className="mt-1 text-xs text-gray-400">Será implementado na Sprint 3</p>
-          </div>
+          {!loading && !error && certificates.length === 0 && (
+            <div className="p-12 text-center">
+              <svg
+                className="mx-auto h-12 w-12 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+              <h3 className="mt-4 text-lg font-medium text-gray-900">Nenhuma certidão encontrada</h3>
+              <p className="mt-2 text-sm text-gray-500">
+                {statusFilter
+                  ? 'Nenhuma certidão encontrada com este filtro.'
+                  : isAdmin
+                    ? 'Ainda não há solicitações de certidões.'
+                    : 'Comece solicitando sua primeira certidão.'}
+              </p>
+              {!isAdmin && !statusFilter && (
+                <Link
+                  to="/request-certificate"
+                  className="mt-4 inline-flex items-center rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500"
+                >
+                  Nova Solicitação
+                </Link>
+              )}
+            </div>
+          )}
+
+          {!loading && !error && certificates.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Tipo
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Nº Ficha
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Partes
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Prioridade
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Data
+                    </th>
+                    {isAdmin && (
+                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                        Custo
+                      </th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 bg-white">
+                  {certificates.map((cert) => (
+                    <tr key={cert.id} className="hover:bg-gray-50">
+                      <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
+                        {cert.certificateType}
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                        {cert.recordNumber}
+                      </td>
+                      <td className="max-w-xs truncate px-6 py-4 text-sm text-gray-500">
+                        {cert.partiesName}
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4">
+                        <Badge config={STATUS_CONFIG[cert.status]} />
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4">
+                        <Badge config={PRIORITY_CONFIG[cert.priority]} />
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                        {new Date(cert.createdAt).toLocaleDateString('pt-BR')}
+                      </td>
+                      {isAdmin && (
+                        <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                          {cert.cost !== null
+                            ? `R$ ${cert.cost.toFixed(2)}`
+                            : '-'}
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Paginação */}
+          {pagination && pagination.total > 0 && (
+            <div className="border-t border-gray-200 bg-gray-50 px-6 py-3">
+              <p className="text-sm text-gray-700">
+                Mostrando{' '}
+                <span className="font-medium">{Math.min(certificates.length, pagination.limit)}</span>{' '}
+                de <span className="font-medium">{pagination.total}</span> resultados
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </Layout>

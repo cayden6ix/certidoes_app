@@ -31,8 +31,13 @@ export async function apiClient<T>(
 
       if (contentType?.includes('application/json')) {
         try {
-          const errorData = (await response.json()) as { message?: string };
-          errorMessage = errorData.message ?? errorMessage;
+          const errorData = (await response.json()) as { message?: string | string[] };
+          // Trata array de mensagens de validação (class-validator retorna array)
+          if (Array.isArray(errorData.message)) {
+            errorMessage = errorData.message[0] ?? errorMessage;
+          } else {
+            errorMessage = errorData.message ?? errorMessage;
+          }
         } catch {
           // Se não conseguir fazer parse do JSON, usa mensagem padrão
         }
@@ -130,5 +135,133 @@ export async function getCurrentUser(token: string): Promise<ApiResponse<Current
     headers: {
       Authorization: `Bearer ${token}`,
     },
+  });
+}
+
+// ============ CERTIFICATES API ============
+
+/**
+ * Tipos de certidão
+ */
+export interface Certificate {
+  id: string;
+  userId: string;
+  certificateType: string;
+  recordNumber: string;
+  partiesName: string;
+  notes: string | null;
+  priority: 'normal' | 'urgent';
+  status: 'pending' | 'in_progress' | 'completed' | 'canceled';
+  cost: number | null;
+  additionalCost: number | null;
+  orderNumber: string | null;
+  paymentDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PaginatedCertificates {
+  data: Certificate[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface CreateCertificateRequest {
+  certificateType: string;
+  recordNumber: string;
+  partiesName: string;
+  notes?: string;
+  priority?: 'normal' | 'urgent';
+}
+
+export interface UpdateCertificateRequest {
+  certificateType?: string;
+  recordNumber?: string;
+  partiesName?: string;
+  notes?: string;
+  priority?: 'normal' | 'urgent';
+  status?: 'pending' | 'in_progress' | 'completed' | 'canceled';
+  cost?: number;
+  additionalCost?: number;
+  orderNumber?: string;
+  paymentDate?: string;
+}
+
+export interface ListCertificatesParams {
+  status?: string;
+  priority?: string;
+  limit?: number;
+  offset?: number;
+}
+
+/**
+ * Cria uma nova certidão
+ */
+export async function createCertificate(
+  token: string,
+  data: CreateCertificateRequest,
+): Promise<ApiResponse<Certificate>> {
+  return apiClient<Certificate>('/certificates', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Lista certidões com filtros opcionais
+ */
+export async function listCertificates(
+  token: string,
+  params?: ListCertificatesParams,
+): Promise<ApiResponse<PaginatedCertificates>> {
+  const queryParams = new URLSearchParams();
+
+  if (params?.status) queryParams.append('status', params.status);
+  if (params?.priority) queryParams.append('priority', params.priority);
+  if (params?.limit) queryParams.append('limit', params.limit.toString());
+  if (params?.offset) queryParams.append('offset', params.offset.toString());
+
+  const queryString = queryParams.toString();
+  const endpoint = queryString ? `/certificates?${queryString}` : '/certificates';
+
+  return apiClient<PaginatedCertificates>(endpoint, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+/**
+ * Obtém uma certidão específica
+ */
+export async function getCertificate(
+  token: string,
+  id: string,
+): Promise<ApiResponse<Certificate>> {
+  return apiClient<Certificate>(`/certificates/${id}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+/**
+ * Atualiza uma certidão
+ */
+export async function updateCertificate(
+  token: string,
+  id: string,
+  data: UpdateCertificateRequest,
+): Promise<ApiResponse<Certificate>> {
+  return apiClient<Certificate>(`/certificates/${id}`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
   });
 }
