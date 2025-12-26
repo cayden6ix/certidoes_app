@@ -10,6 +10,7 @@ import {
   Inject,
   HttpCode,
   ParseUUIDPipe,
+  BadRequestException,
 } from '@nestjs/common';
 import type { LoggerContract } from '../../../../shared/1-domain/contracts/logger.contract';
 import { LOGGER_CONTRACT } from '../../../../shared/1-domain/contracts/logger.contract';
@@ -30,7 +31,8 @@ import { CreateCertificateRequestDto } from '../../2-application/dto/create-cert
 import { ListCertificatesRequestDto } from '../../2-application/dto/list-certificates-request.dto';
 import { UpdateCertificateRequestDto } from '../../2-application/dto/update-certificate-request.dto';
 import { ListCertificateEventsRequestDto } from '../../2-application/dto/list-certificate-events-request.dto';
-import { CertificateTypesService } from '../../../admin/2-application/services/certificate-types.service';
+import type { ListCertificateTypesUseCase } from '../../../admin/2-application/use-cases/certificate-types/list-certificate-types.usecase';
+import { LIST_CERTIFICATE_TYPES_USECASE } from '../../../admin/4-infrastructure/di/admin.tokens';
 import { JwtAuthGuard } from '../../../auth/3-interface-adapters/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../auth/3-interface-adapters/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../../auth/3-interface-adapters/types/express-request.types';
@@ -59,9 +61,10 @@ export class CertificatesController {
     private readonly updateCertificateUseCase: UpdateCertificateUseCase,
     @Inject(LIST_CERTIFICATE_EVENTS_USECASE)
     private readonly listCertificateEventsUseCase: ListCertificateEventsUseCase,
+    @Inject(LIST_CERTIFICATE_TYPES_USECASE)
+    private readonly listCertificateTypesUseCase: ListCertificateTypesUseCase,
     @Inject(LOGGER_CONTRACT)
     private readonly logger: LoggerContract,
-    private readonly certificateTypesService: CertificateTypesService,
   ) {}
 
   /**
@@ -156,15 +159,19 @@ export class CertificatesController {
       offset: query.offset,
     });
 
-    const result = await this.certificateTypesService.list({
+    const result = await this.listCertificateTypesUseCase.execute({
       search: query.search,
       limit: pagination.limit,
       offset: pagination.offset,
     });
 
+    if (!result.success) {
+      throw new BadRequestException(result.error);
+    }
+
     return {
-      data: result.data,
-      total: result.total,
+      data: result.data.data,
+      total: result.data.total,
       limit: pagination.limit,
       offset: pagination.offset,
     };

@@ -13,17 +13,9 @@ export interface CertificateRow {
   user_id: string;
   /** Campo preferencial para tipo de certidão (resolve por ID) */
   certificate_type_id?: string;
-  /** @deprecated Alias legado - usar certificate_type_id */
-  certificate_type?: string;
   record_number: string;
   /** Campo preferencial para nomes das partes */
   party_names?: string | string[];
-  /** @deprecated Alias legado - usar party_names */
-  parties_name?: string | string[];
-  /** @deprecated Alias legado - usar party_names */
-  parties_names?: string | string[];
-  /** @deprecated Alias legado - usar observations */
-  notes?: string | null;
   /** Campo preferencial para observações */
   observations?: string | null;
   priority?: 'normal' | 'urgent' | CertificatePriority | null;

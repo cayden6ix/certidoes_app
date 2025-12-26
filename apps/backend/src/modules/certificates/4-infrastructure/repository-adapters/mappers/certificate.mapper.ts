@@ -151,11 +151,10 @@ export class CertificateMapper {
 
   /**
    * Resolve o nome das partes de diferentes colunas possíveis
-   * Ordem de prioridade: party_names (preferencial) > parties_names > parties_name
-   * @see CertificateRow para detalhes sobre campos legados
+   * Ordem de prioridade: party_names (preferencial)
    */
   resolvePartiesName(row: CertificateRow): string {
-    const value = row.party_names ?? row.parties_names ?? row.parties_name;
+    const value = row.party_names;
 
     if (!value) {
       return '';
@@ -170,21 +169,16 @@ export class CertificateMapper {
 
   /**
    * Resolve notas/observações de diferentes colunas possíveis
-   * Ordem de prioridade: observations (preferencial) > notes
-   * @see CertificateRow para detalhes sobre campos legados
+   * Ordem de prioridade: observations (preferencial)
    */
   resolveNotes(row: CertificateRow): string | null {
-    return row.observations ?? row.notes ?? null;
+    return row.observations ?? null;
   }
 
   /**
    * Resolve o nome do tipo de certidão usando mapa de IDs
    */
   resolveCertificateTypeName(row: CertificateRow, typeNameMap: Map<string, string>): string {
-    if (row.certificate_type) {
-      return row.certificate_type;
-    }
-
     if (row.certificate_type_id) {
       return typeNameMap.get(row.certificate_type_id) ?? row.certificate_type_id;
     }
@@ -197,7 +191,7 @@ export class CertificateMapper {
    * Usado quando não há mapa de tipos disponível
    */
   private resolveCertificateTypeFromRow(row: CertificateRow): string {
-    return row.certificate_type ?? row.certificate_type_id ?? '';
+    return row.certificate_type_id ?? '';
   }
 
   /**

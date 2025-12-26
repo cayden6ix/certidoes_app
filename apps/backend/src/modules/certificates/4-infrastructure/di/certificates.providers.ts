@@ -14,6 +14,11 @@ import { SupabaseCertificateRepository } from '../repository-adapters/supabase-c
 import { CertificateStatusValidationResolver } from '../repository-adapters/services/certificate-status-validation.resolver';
 import { SUPABASE_CLIENT } from '../../../supabase/4-infrastructure/di/supabase.tokens';
 import type { TypedSupabaseClient } from '../../../supabase/4-infrastructure/di/supabase.providers';
+import type { CertificateTypeRepositoryContract } from '../../../admin/1-domain/contracts/certificate-type.repository.contract';
+import { CERTIFICATE_TYPE_REPOSITORY } from '../../../admin/1-domain/contracts/certificate-type.repository.contract';
+import { ListCertificateTypesUseCase } from '../../../admin/2-application/use-cases/certificate-types/list-certificate-types.usecase';
+import { SupabaseCertificateTypeRepository } from '../../../admin/4-infrastructure/repository-adapters/supabase-certificate-type.repository';
+import { LIST_CERTIFICATE_TYPES_USECASE } from '../../../admin/4-infrastructure/di/admin.tokens';
 import {
   CERTIFICATE_EVENT_REPOSITORY_CONTRACT,
   CERTIFICATE_REPOSITORY_CONTRACT,
@@ -60,6 +65,16 @@ export const certificatesProviders: Provider[] = [
       logger: LoggerContract,
     ): CertificateStatusValidationContract => {
       return new CertificateStatusValidationResolver(supabaseClient, logger);
+    },
+    inject: [SUPABASE_CLIENT, LOGGER_CONTRACT],
+  },
+  {
+    provide: CERTIFICATE_TYPE_REPOSITORY,
+    useFactory: (
+      supabaseClient: TypedSupabaseClient,
+      logger: LoggerContract,
+    ): CertificateTypeRepositoryContract => {
+      return new SupabaseCertificateTypeRepository(supabaseClient, logger);
     },
     inject: [SUPABASE_CLIENT, LOGGER_CONTRACT],
   },
@@ -148,5 +163,15 @@ export const certificatesProviders: Provider[] = [
       CERTIFICATE_EVENT_REPOSITORY_CONTRACT,
       LOGGER_CONTRACT,
     ],
+  },
+  {
+    provide: LIST_CERTIFICATE_TYPES_USECASE,
+    useFactory: (
+      repository: CertificateTypeRepositoryContract,
+      logger: LoggerContract,
+    ): ListCertificateTypesUseCase => {
+      return new ListCertificateTypesUseCase(repository, logger);
+    },
+    inject: [CERTIFICATE_TYPE_REPOSITORY, LOGGER_CONTRACT],
   },
 ];

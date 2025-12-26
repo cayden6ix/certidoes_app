@@ -465,10 +465,10 @@ Tornar a codebase 100% Clean Architecture, seguindo SOLID, removendo fallbacks/m
 
 **Refatorar UpdateCertificateUseCase:**
 
-- [ ] Extrair CertificateAccessControlService
-- [ ] Extrair CertificateStatusValidationService
-- [ ] Extrair CertificateChangeTrackingService
-- [ ] Reduzir método execute() de 220 para ~30 linhas
+- [x] Extrair CertificateAccessControlService
+- [x] Extrair CertificateStatusValidationService
+- [x] Extrair CertificateChangeTrackingService
+- [x] Reduzir método execute() de 220 para ~30 linhas
 
 **Outros:**
 

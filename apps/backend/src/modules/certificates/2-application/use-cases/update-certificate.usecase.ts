@@ -38,69 +38,43 @@ export class UpdateCertificateUseCase {
    * @returns Result com a entidade atualizada ou erro
    */
   async execute(request: UpdateCertificateRequestDto): Promise<Result<CertificateEntity>> {
-    this.logger.debug('Iniciando atualização de certidão', {
-      certificateId: request.certificateId,
-      userId: request.userId,
-      userRole: request.userRole,
-    });
+    this.logUpdateStart(request);
 
-    // Busca certidão existente
-    const findResult = await this.certificateRepository.findById(request.certificateId);
-    if (!findResult.success) {
-      this.logCertificateNotFound(request);
-      return findResult;
+    const certificateResult = await this.findCertificateOrReturn(request);
+    if (!certificateResult.success) {
+      return certificateResult;
     }
 
-    const certificate = findResult.data;
+    const certificate = certificateResult.data;
 
-    // Verifica permissões de acesso
     const accessResult = this.verifyAccess(certificate, request);
     if (!accessResult.success) {
       return accessResult;
     }
 
-    const { isAdmin } = this.accessControl.checkAccess(
-      certificate,
-      request.userId,
-      request.userRole,
-    );
-
-    // Filtra e limpa dados de atualização
-    const cleanData = this.prepareUpdateData(request.data, request.userRole);
-    if (Object.keys(cleanData).length === 0) {
+    const updateContext = this.buildUpdateContext(certificate, request);
+    if (!updateContext.hasUpdates) {
       this.logger.debug('Nenhum campo para atualizar', { certificateId: request.certificateId });
-      return findResult;
+      return certificateResult;
     }
 
-    // Valida mudança de status (se aplicável)
     const statusValidationResult = await this.validateStatusChangeIfNeeded(
       certificate,
-      cleanData,
-      isAdmin,
+      updateContext.cleanData,
+      updateContext.isAdmin,
       request.validation,
     );
     if (!statusValidationResult.success) {
       return statusValidationResult;
     }
 
-    // Executa atualização no repositório
-    const updateResult = await this.certificateRepository.update(request.certificateId, cleanData);
+    const updateResult = await this.applyUpdate(request, updateContext.cleanData);
     if (!updateResult.success) {
-      this.logger.error('Erro ao atualizar certidão', {
-        certificateId: request.certificateId,
-        error: updateResult.error,
-      });
       return updateResult;
     }
 
-    this.logger.info('Certidão atualizada com sucesso', {
-      certificateId: request.certificateId,
-      userId: request.userId,
-      updatedFields: Object.keys(cleanData),
-    });
-
-    // Registra evento de auditoria
-    await this.recordAuditEvent(certificate, updateResult.data, cleanData, request);
+    this.logUpdateSuccess(request, updateContext.cleanData);
+    await this.recordAuditEvent(certificate, updateResult.data, updateContext.cleanData, request);
 
     return updateResult;
   }
@@ -143,6 +117,85 @@ export class UpdateCertificateUseCase {
   ): Record<string, unknown> {
     const filteredData = this.accessControl.filterFieldsByRole(data, userRole);
     return this.accessControl.cleanUpdateData(filteredData) as Record<string, unknown>;
+  }
+
+  /**
+   * Monta contexto de atualização com dados filtrados e permissões
+   */
+  private buildUpdateContext(
+    certificate: CertificateEntity,
+    request: UpdateCertificateRequestDto,
+  ): { cleanData: Record<string, unknown>; hasUpdates: boolean; isAdmin: boolean } {
+    const { isAdmin } = this.accessControl.checkAccess(
+      certificate,
+      request.userId,
+      request.userRole,
+    );
+    const cleanData = this.prepareUpdateData(request.data, request.userRole);
+
+    return {
+      cleanData,
+      hasUpdates: Object.keys(cleanData).length > 0,
+      isAdmin,
+    };
+  }
+
+  /**
+   * Busca certidão com log de início e tratamento de not found
+   */
+  private async findCertificateOrReturn(
+    request: UpdateCertificateRequestDto,
+  ): Promise<Result<CertificateEntity>> {
+    const findResult = await this.certificateRepository.findById(request.certificateId);
+    if (!findResult.success) {
+      this.logCertificateNotFound(request);
+      return findResult;
+    }
+
+    return findResult;
+  }
+
+  /**
+   * Aplica atualização no repositório com logging de erro
+   */
+  private async applyUpdate(
+    request: UpdateCertificateRequestDto,
+    cleanData: Record<string, unknown>,
+  ): Promise<Result<CertificateEntity>> {
+    const updateResult = await this.certificateRepository.update(request.certificateId, cleanData);
+    if (!updateResult.success) {
+      this.logger.error('Erro ao atualizar certidão', {
+        certificateId: request.certificateId,
+        error: updateResult.error,
+      });
+    }
+
+    return updateResult;
+  }
+
+  /**
+   * Log helper para início do update
+   */
+  private logUpdateStart(request: UpdateCertificateRequestDto): void {
+    this.logger.debug('Iniciando atualização de certidão', {
+      certificateId: request.certificateId,
+      userId: request.userId,
+      userRole: request.userRole,
+    });
+  }
+
+  /**
+   * Log helper para sucesso
+   */
+  private logUpdateSuccess(
+    request: UpdateCertificateRequestDto,
+    cleanData: Record<string, unknown>,
+  ): void {
+    this.logger.info('Certidão atualizada com sucesso', {
+      certificateId: request.certificateId,
+      userId: request.userId,
+      updatedFields: Object.keys(cleanData),
+    });
   }
 
   /**
