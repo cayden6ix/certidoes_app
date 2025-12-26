@@ -8,7 +8,10 @@ import type {
   ListCertificatesOptions,
   PaginatedCertificates,
 } from '../../1-domain/contracts/certificate.repository.contract';
-import type { CertificateEntity } from '../../1-domain/entities/certificate.entity';
+import type {
+  CertificateEntity,
+  CertificateTagData,
+} from '../../1-domain/entities/certificate.entity';
 import { CertificateError } from '../../1-domain/errors/certificate-errors.enum';
 import type { TypedSupabaseClient } from '../../../supabase/4-infrastructure/di/supabase.providers';
 import type {
@@ -73,7 +76,8 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
 
       const typedInsertedData = insertedData as Tables<'certificates'>;
       const row = this.mapDatabaseRowToCertificateRow(typedInsertedData);
-      const entity = this.mapper.mapToEntity(row, data.certificateType, null);
+      // Certidão recém-criada não tem tags
+      const entity = this.mapper.mapToEntity(row, data.certificateType, null, []);
 
       if (!entity) {
         return failure(CertificateError.UNEXPECTED_ERROR);
@@ -114,10 +118,12 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
       const paymentTypeNameMap = await this.fetchPaymentTypeNameMap(
         row.payment_type_id ? [row.payment_type_id] : [],
       );
+      const tagsMap = await this.fetchTagsMap([id]);
+      const tags = tagsMap.get(id) ?? [];
 
       const certificateTypeName = this.mapper.resolveCertificateTypeName(row, typeNameMap);
       const paymentTypeName = this.mapper.resolvePaymentTypeName(row, paymentTypeNameMap);
-      const entity = this.mapper.mapToEntity(row, certificateTypeName, paymentTypeName);
+      const entity = this.mapper.mapToEntity(row, certificateTypeName, paymentTypeName, tags);
 
       if (!entity) {
         return failure(CertificateError.UNEXPECTED_ERROR);
@@ -200,12 +206,19 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
 
       const typedDataList = (data ?? []) as Tables<'certificates'>[];
       const rows = typedDataList.map((row) => this.mapDatabaseRowToCertificateRow(row));
+      const certificateIds = rows.map((row) => row.id);
       const typeIds = this.extractTypeIds(rows);
       const paymentTypeIds = this.extractPaymentTypeIds(rows);
       const typeNameMap = await this.typeResolver.fetchTypeNameMap(typeIds);
       const paymentTypeNameMap = await this.fetchPaymentTypeNameMap(paymentTypeIds);
+      const tagsMap = await this.fetchTagsMap(certificateIds);
 
-      const entities = this.mapper.mapManyToEntities(rows, typeNameMap, paymentTypeNameMap);
+      const entities = this.mapper.mapManyToEntities(
+        rows,
+        typeNameMap,
+        paymentTypeNameMap,
+        tagsMap,
+      );
 
       return success({
         data: entities,
@@ -256,10 +269,12 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
       const paymentTypeNameMap = await this.fetchPaymentTypeNameMap(
         row.payment_type_id ? [row.payment_type_id] : [],
       );
+      const tagsMap = await this.fetchTagsMap([id]);
+      const tags = tagsMap.get(id) ?? [];
 
       const certificateTypeName = this.mapper.resolveCertificateTypeName(row, typeNameMap);
       const paymentTypeName = this.mapper.resolvePaymentTypeName(row, paymentTypeNameMap);
-      const entity = this.mapper.mapToEntity(row, certificateTypeName, paymentTypeName);
+      const entity = this.mapper.mapToEntity(row, certificateTypeName, paymentTypeName, tags);
 
       if (!entity) {
         return failure(CertificateError.UNEXPECTED_ERROR);
@@ -437,6 +452,63 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
       if (typedRow.id && typedRow.name) {
         map.set(typedRow.id, typedRow.name);
       }
+    });
+
+    return map;
+  }
+
+  /**
+   * Busca mapa de tags por IDs de certificados
+   * Retorna um Map onde a chave é o ID do certificado e o valor é um array de tags
+   */
+  private async fetchTagsMap(certificateIds: string[]): Promise<Map<string, CertificateTagData[]>> {
+    const map = new Map<string, CertificateTagData[]>();
+    if (certificateIds.length === 0) {
+      return map;
+    }
+
+    // Busca as associações e as tags relacionadas
+    const { data, error } = await this.supabaseClient
+      .from('certificate_tag_assignments')
+      .select(
+        `
+        certificate_id,
+        certificate_tags (
+          id,
+          name,
+          color
+        )
+      `,
+      )
+      .in('certificate_id', certificateIds);
+
+    if (error) {
+      this.logger.error('Erro ao buscar tags dos certificados', { error: error.message });
+      return map;
+    }
+
+    // Agrupa as tags por certificado
+    (data ?? []).forEach((row) => {
+      const certificateId = row.certificate_id;
+      const tagData = row.certificate_tags as {
+        id: string;
+        name: string;
+        color: string | null;
+      } | null;
+
+      if (!tagData) {
+        return;
+      }
+
+      const tag: CertificateTagData = {
+        id: tagData.id,
+        name: tagData.name,
+        color: tagData.color,
+      };
+
+      const existingTags = map.get(certificateId) ?? [];
+      existingTags.push(tag);
+      map.set(certificateId, existingTags);
     });
 
     return map;

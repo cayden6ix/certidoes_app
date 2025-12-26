@@ -3,7 +3,12 @@ import { Link } from 'react-router-dom';
 
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
-import { listCertificates, type Certificate, type PaginatedCertificates } from '../lib/api';
+import {
+  listCertificates,
+  type Certificate,
+  type CertificateTagInfo,
+  type PaginatedCertificates,
+} from '../lib/api';
 
 /**
  * Mapeia status para cores e labels
@@ -42,6 +47,51 @@ function Badge({
       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${config.bgColor} ${config.textColor}`}
     >
       {config.label}
+    </span>
+  );
+}
+
+/**
+ * Componente de Badge para tags com cor personalizada
+ */
+function TagBadge({ tag }: { tag: CertificateTagInfo }): JSX.Element {
+  // Se a tag tem cor definida, usa ela; caso contrário, usa cinza como padrão
+  const hasCustomColor = tag.color?.startsWith('#');
+
+  if (hasCustomColor) {
+    // Calcula cor de texto baseado no brilho da cor de fundo
+    const hexToRgb = (hex: string): { r: number; g: number; b: number } => {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result
+        ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16),
+          }
+        : { r: 128, g: 128, b: 128 };
+    };
+
+    const rgb = hexToRgb(tag.color!);
+    const brightness = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
+    const textColor = brightness > 128 ? '#1f2937' : '#ffffff';
+
+    return (
+      <span
+        className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+        style={{
+          backgroundColor: tag.color!,
+          color: textColor,
+        }}
+      >
+        {tag.name}
+      </span>
+    );
+  }
+
+  // Fallback para cor padrão (cinza)
+  return (
+    <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+      {tag.name}
     </span>
   );
 }
@@ -332,6 +382,9 @@ export function DashboardPage(): JSX.Element {
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                       Data
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Tags
+                    </th>
                     {isAdmin && (
                       <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                         Custo
@@ -362,6 +415,15 @@ export function DashboardPage(): JSX.Element {
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
                         {new Date(cert.createdAt).toLocaleDateString('pt-BR')}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-wrap gap-1">
+                          {cert.tags && cert.tags.length > 0 ? (
+                            cert.tags.map((tag) => <TagBadge key={tag.id} tag={tag} />)
+                          ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
+                        </div>
                       </td>
                       {isAdmin && (
                         <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">

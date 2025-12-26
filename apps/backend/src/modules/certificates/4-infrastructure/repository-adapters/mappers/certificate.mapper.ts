@@ -1,5 +1,8 @@
 import type { LoggerContract } from '../../../../../shared/1-domain/contracts/logger.contract';
-import { CertificateEntity } from '../../../1-domain/entities/certificate.entity';
+import {
+  CertificateEntity,
+  type CertificateTagData,
+} from '../../../1-domain/entities/certificate.entity';
 import {
   CertificateStatusValueObject,
   type CertificateStatusType,
@@ -29,12 +32,14 @@ export class CertificateMapper {
    * @param row - Linha do banco de dados
    * @param certificateTypeName - Nome do tipo de certidão (opcional, resolvido externamente)
    * @param paymentTypeName - Nome do tipo de pagamento (opcional, resolvido externamente)
+   * @param tags - Tags associadas à certidão
    * @returns Entidade ou null se falhar
    */
   mapToEntity(
     row: CertificateRow,
     certificateTypeName?: string,
     paymentTypeName?: string | null,
+    tags: CertificateTagData[] = [],
   ): CertificateEntity | null {
     try {
       const statusValue = row.status ?? DEFAULT_STATUS;
@@ -71,6 +76,7 @@ export class CertificateMapper {
         paymentTypeId: row.payment_type_id ?? null,
         paymentType: paymentTypeName ?? this.resolvePaymentTypeFromRow(row),
         paymentDate: row.payment_date ? new Date(row.payment_date) : null,
+        tags,
         createdAt: new Date(row.created_at),
         updatedAt: new Date(row.updated_at),
       });
@@ -87,11 +93,16 @@ export class CertificateMapper {
   /**
    * Mapeia múltiplas linhas para entidades
    * Filtra automaticamente as que falharem no mapeamento
+   * @param rows - Linhas do banco de dados
+   * @param typeNameMap - Mapa de IDs de tipo para nomes
+   * @param paymentTypeNameMap - Mapa de IDs de tipo de pagamento para nomes
+   * @param tagsMap - Mapa de IDs de certificado para suas tags
    */
   mapManyToEntities(
     rows: CertificateRow[],
     typeNameMap: Map<string, string>,
     paymentTypeNameMap: Map<string, string>,
+    tagsMap: Map<string, CertificateTagData[]> = new Map(),
   ): CertificateEntity[] {
     return rows
       .map((row) =>
@@ -99,6 +110,7 @@ export class CertificateMapper {
           row,
           this.resolveCertificateTypeName(row, typeNameMap),
           this.resolvePaymentTypeName(row, paymentTypeNameMap),
+          tagsMap.get(row.id) ?? [],
         ),
       )
       .filter((entity): entity is CertificateEntity => entity !== null);

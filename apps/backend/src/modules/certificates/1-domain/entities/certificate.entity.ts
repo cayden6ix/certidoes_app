@@ -2,6 +2,15 @@ import type { CertificateStatusValueObject } from '../value-objects/certificate-
 import type { CertificatePriorityValueObject } from '../value-objects/certificate-priority.value-object';
 
 /**
+ * Representa uma tag associada a uma certidão
+ */
+export interface CertificateTagData {
+  id: string;
+  name: string;
+  color: string | null;
+}
+
+/**
  * Interface para criação de CertificateEntity
  */
 export interface CertificateEntityProps {
@@ -19,6 +28,7 @@ export interface CertificateEntityProps {
   paymentTypeId: string | null;
   paymentType: string | null;
   paymentDate: Date | null;
+  tags: CertificateTagData[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -42,6 +52,7 @@ export class CertificateEntity {
   readonly paymentTypeId: string | null;
   readonly paymentType: string | null;
   readonly paymentDate: Date | null;
+  readonly tags: CertificateTagData[];
   readonly createdAt: Date;
   readonly updatedAt: Date;
 
@@ -63,6 +74,7 @@ export class CertificateEntity {
     this.paymentTypeId = props.paymentTypeId;
     this.paymentType = props.paymentType;
     this.paymentDate = props.paymentDate;
+    this.tags = props.tags;
     this.createdAt = props.createdAt;
     this.updatedAt = props.updatedAt;
   }
@@ -117,6 +129,7 @@ export class CertificateEntity {
       paymentTypeId: this.paymentTypeId,
       paymentType: this.paymentType,
       paymentDate: this.paymentDate?.toISOString() ?? null,
+      tags: this.tags,
       createdAt: this.createdAt.toISOString(),
       updatedAt: this.updatedAt.toISOString(),
     };

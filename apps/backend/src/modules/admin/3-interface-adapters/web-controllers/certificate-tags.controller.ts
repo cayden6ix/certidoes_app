@@ -21,7 +21,12 @@ import { Roles } from '../../../auth/3-interface-adapters/decorators/roles.decor
 import { CurrentUser } from '../../../auth/3-interface-adapters/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../../auth/3-interface-adapters/types/express-request.types';
 import { CertificateTagsService } from '../../2-application/services/certificate-tags.service';
-import { CreateTagDto, ListTagsQueryDto, UpdateTagDto } from '../api-dto/tags.dto';
+import {
+  CreateTagDto,
+  ListTagsQueryDto,
+  UpdateCertificateTagsDto,
+  UpdateTagDto,
+} from '../api-dto/tags.dto';
 
 @Controller('admin/certificate-tags')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -68,10 +73,7 @@ export class CertificateTagsController {
 
   @Patch(':id')
   @HttpCode(200)
-  async update(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateTagDto,
-  ) {
+  async update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateTagDto) {
     this.logger.debug('Atualizando tag', { id, fields: Object.keys(dto) });
     return this.certificateTagsService.update(id, dto);
   }
@@ -81,5 +83,24 @@ export class CertificateTagsController {
   async remove(@Param('id', ParseUUIDPipe) id: string) {
     this.logger.debug('Removendo tag', { id });
     await this.certificateTagsService.remove(id);
+  }
+
+  /**
+   * Atualiza as tags de um certificado específico
+   */
+  @Post('certificates/:certificateId')
+  @HttpCode(200)
+  async updateCertificateTags(
+    @Param('certificateId', ParseUUIDPipe) certificateId: string,
+    @Body() dto: UpdateCertificateTagsDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    this.logger.debug('Atualizando tags do certificado', {
+      certificateId,
+      tagIds: dto.tagIds,
+      userId: user.userId,
+    });
+    await this.certificateTagsService.updateCertificateTags(certificateId, dto.tagIds, user.userId);
+    return { success: true };
   }
 }

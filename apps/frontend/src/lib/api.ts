@@ -145,8 +145,14 @@ export async function getCurrentUser(token: string): Promise<ApiResponse<Current
 // ============ CERTIFICATES API ============
 
 /**
- * Tipos de certidão
+ * Representa uma tag associada a uma certidão
  */
+export interface CertificateTagInfo {
+  id: string;
+  name: string;
+  color: string | null;
+}
+
 export interface Certificate {
   id: string;
   userId: string;
@@ -162,6 +168,7 @@ export interface Certificate {
   paymentTypeId: string | null;
   paymentType: string | null;
   paymentDate: string | null;
+  tags: CertificateTagInfo[];
   createdAt: string;
   updatedAt: string;
 }
@@ -619,5 +626,20 @@ export async function deleteCertificateTag(token: string, id: string): Promise<A
   return apiClient<void>(`/admin/certificate-tags/${id}`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+/**
+ * Atualiza as tags de um certificado específico
+ */
+export async function updateCertificateTags(
+  token: string,
+  certificateId: string,
+  tagIds: string[],
+): Promise<ApiResponse<{ success: boolean }>> {
+  return apiClient<{ success: boolean }>(`/admin/certificate-tags/certificates/${certificateId}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ tagIds }),
   });
 }

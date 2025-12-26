@@ -1,11 +1,5 @@
 import { Type } from 'class-transformer';
-import {
-  IsHexColor,
-  IsInt,
-  IsOptional,
-  IsString,
-  Min,
-} from 'class-validator';
+import { IsArray, IsHexColor, IsInt, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 
 export class ListTagsQueryDto {
   @IsOptional()
@@ -56,4 +50,13 @@ export class UpdateTagDto {
   @IsString()
   @IsHexColor()
   color?: string;
+}
+
+/**
+ * DTO para atualizar tags de um certificado
+ */
+export class UpdateCertificateTagsDto {
+  @IsArray()
+  @IsUUID('4', { each: true })
+  tagIds!: string[];
 }

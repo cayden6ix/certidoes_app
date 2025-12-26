@@ -6,10 +6,13 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   getCertificate,
   listCertificateEvents,
+  listCertificateTags,
   listPaymentTypes,
   updateCertificate,
+  updateCertificateTags,
   type Certificate,
   type CertificateEvent,
+  type CertificateTag,
   type PaymentType,
 } from '../lib/api';
 
@@ -45,6 +48,18 @@ function Badge({
   );
 }
 
+/**
+ * Calcula a cor de contraste (branco ou preto) baseado na cor de fundo
+ */
+function getContrastColor(hexColor: string): string {
+  const hex = hexColor.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness > 128 ? '#1f2937' : '#ffffff';
+}
+
 function formatEventLabel(eventType: string): string {
   switch (eventType) {
     case 'created':
@@ -53,6 +68,8 @@ function formatEventLabel(eventType: string): string {
       return 'Status atualizado';
     case 'updated':
       return 'Certidão atualizada';
+    case 'tags_updated':
+      return 'Tags atualizadas';
     default:
       return eventType;
   }
@@ -119,6 +136,62 @@ function formatValue(value: unknown): string {
   return '[unknown]';
 }
 
+/**
+ * Formata transições de tags de forma específica
+ * Mostra quais tags foram removidas e quais foram adicionadas
+ */
+function formatTagTransitions(before: unknown, after: unknown): string[] {
+  const parseTagList = (value: unknown): string[] => {
+    if (typeof value !== 'string') return [];
+    if (value === 'Nenhuma' || value.trim() === '') return [];
+    return value
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter((tag) => tag.length > 0);
+  };
+
+  const beforeTags = parseTagList(before);
+  const afterTags = parseTagList(after);
+
+  // Calcula tags removidas e adicionadas
+  const removedTags = beforeTags.filter((tag) => !afterTags.includes(tag));
+  const addedTags = afterTags.filter((tag) => !beforeTags.includes(tag));
+
+  const lines: string[] = [];
+
+  // Se todas foram removidas e nenhuma adicionada
+  if (removedTags.length > 0 && afterTags.length === 0) {
+    lines.push(`Tags removidas: ${removedTags.join(', ')}`);
+    lines.push('Tags atuais: Nenhuma');
+    return lines;
+  }
+
+  // Se nenhuma havia antes e agora há
+  if (beforeTags.length === 0 && addedTags.length > 0) {
+    lines.push('Tags anteriores: Nenhuma');
+    lines.push(`Tags adicionadas: ${addedTags.join(', ')}`);
+    return lines;
+  }
+
+  // Caso geral: mostra removidas e adicionadas separadamente
+  if (removedTags.length > 0) {
+    lines.push(`Tags removidas: ${removedTags.join(', ')}`);
+  }
+
+  if (addedTags.length > 0) {
+    lines.push(`Tags adicionadas: ${addedTags.join(', ')}`);
+  }
+
+  // Se não houve remoção nem adição mas os valores são diferentes (reordenação), mostra transição simples
+  if (lines.length === 0 && beforeTags.join(',') !== afterTags.join(',')) {
+    lines.push(
+      `Tags: ${beforeTags.join(', ') || 'Nenhuma'} → ${afterTags.join(', ') || 'Nenhuma'}`,
+    );
+  }
+
+  return lines;
+}
+
 function formatChanges(changes: Record<string, unknown> | null): string[] {
   if (!changes) return [];
   let entries = Object.entries(changes);
@@ -132,26 +205,37 @@ function formatChanges(changes: Record<string, unknown> | null): string[] {
     entries = Object.entries(entries[0][1] as Record<string, unknown>);
   }
 
-  return entries
-    .map(([field, value]) => {
-      if (
-        value &&
-        typeof value === 'object' &&
-        !Array.isArray(value) &&
-        'before' in value &&
-        'after' in value
-      ) {
-        const before = (value as { before?: unknown }).before;
-        const after = (value as { after?: unknown }).after;
-        if (normalizeComparable(before) === normalizeComparable(after)) {
-          return null;
-        }
-        return `${formatFieldLabel(field)}: ${formatValue(before)} → ${formatValue(after)}`;
+  const result: string[] = [];
+
+  for (const [field, value] of entries) {
+    if (
+      value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      'before' in value &&
+      'after' in value
+    ) {
+      const before = (value as { before?: unknown }).before;
+      const after = (value as { after?: unknown }).after;
+      if (normalizeComparable(before) === normalizeComparable(after)) {
+        continue;
       }
-      if (value === undefined) return null;
-      return `${formatFieldLabel(field)}: ${formatValue(value)}`;
-    })
-    .filter((line): line is string => Boolean(line));
+
+      // Tratamento especial para tags
+      if (field === 'tags') {
+        const tagLines = formatTagTransitions(before, after);
+        result.push(...tagLines);
+        continue;
+      }
+
+      result.push(`${formatFieldLabel(field)}: ${formatValue(before)} → ${formatValue(after)}`);
+      continue;
+    }
+    if (value === undefined) continue;
+    result.push(`${formatFieldLabel(field)}: ${formatValue(value)}`);
+  }
+
+  return result;
 }
 
 export function CertificateDetailPage(): JSX.Element {
@@ -175,6 +259,11 @@ export function CertificateDetailPage(): JSX.Element {
   const [paymentTypes, setPaymentTypes] = useState<PaymentType[]>([]);
   const [loadingPaymentTypes, setLoadingPaymentTypes] = useState(false);
   const [paymentTypesError, setPaymentTypesError] = useState<string | null>(null);
+  const [availableTags, setAvailableTags] = useState<CertificateTag[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [loadingTags, setLoadingTags] = useState(false);
+  const [tagsError, setTagsError] = useState<string | null>(null);
+  const [isSavingTags, setIsSavingTags] = useState(false);
 
   const isAdmin = user?.role === 'admin';
 
@@ -259,6 +348,42 @@ export function CertificateDetailPage(): JSX.Element {
       active = false;
     };
   }, [token, isAdmin]);
+
+  // Busca tags disponíveis para admin
+  useEffect(() => {
+    if (!token || !isAdmin) return;
+
+    let active = true;
+    const fetchTags = async (): Promise<void> => {
+      setLoadingTags(true);
+      const response = await listCertificateTags(token, { limit: 100 });
+
+      if (!active) return;
+
+      if (response.error || !response.data) {
+        setTagsError(response.error ?? 'Não foi possível carregar tags.');
+        setAvailableTags([]);
+      } else {
+        setTagsError(null);
+        setAvailableTags(response.data.data);
+      }
+
+      setLoadingTags(false);
+    };
+
+    void fetchTags();
+
+    return () => {
+      active = false;
+    };
+  }, [token, isAdmin]);
+
+  // Inicializa tags selecionadas quando o certificado for carregado
+  useEffect(() => {
+    if (certificate?.tags) {
+      setSelectedTagIds(certificate.tags.map((tag) => tag.id));
+    }
+  }, [certificate?.tags]);
 
   const sortedEvents = useMemo(() => {
     return [...events].sort(
@@ -370,6 +495,34 @@ export function CertificateDetailPage(): JSX.Element {
                     {certificate.paymentType ?? 'Não informado'}
                   </p>
                 </div>
+                <div className="sm:col-span-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Tags</p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {certificate.tags && certificate.tags.length > 0 ? (
+                      certificate.tags.map((tag) => {
+                        const hasColor = tag.color?.startsWith('#');
+                        return (
+                          <span
+                            key={tag.id}
+                            className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+                            style={
+                              hasColor
+                                ? {
+                                    backgroundColor: tag.color!,
+                                    color: getContrastColor(tag.color!),
+                                  }
+                                : { backgroundColor: '#e5e7eb', color: '#374151' }
+                            }
+                          >
+                            {tag.name}
+                          </span>
+                        );
+                      })
+                    ) : (
+                      <span className="text-sm text-gray-500">Nenhuma tag</span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -435,20 +588,21 @@ export function CertificateDetailPage(): JSX.Element {
                     }
 
                     if (response.data) {
-                      setCertificate(response.data);
+                      const updatedData = response.data;
+                      setCertificate(updatedData);
                       setAdminForm((prev) => ({
                         ...prev,
-                        status: response.data.status,
-                        cost: response.data.cost !== null ? response.data.cost.toString() : '',
+                        status: updatedData.status,
+                        cost: updatedData.cost !== null ? updatedData.cost.toString() : '',
                         additionalCost:
-                          response.data.additionalCost !== null
-                            ? response.data.additionalCost.toString()
+                          updatedData.additionalCost !== null
+                            ? updatedData.additionalCost.toString()
                             : '',
-                        orderNumber: response.data.orderNumber ?? '',
-                        paymentDate: response.data.paymentDate
-                          ? response.data.paymentDate.slice(0, 10)
+                        orderNumber: updatedData.orderNumber ?? '',
+                        paymentDate: updatedData.paymentDate
+                          ? updatedData.paymentDate.slice(0, 10)
                           : '',
-                        paymentTypeId: response.data.paymentTypeId ?? '',
+                        paymentTypeId: updatedData.paymentTypeId ?? '',
                       }));
                     }
 
@@ -616,6 +770,113 @@ export function CertificateDetailPage(): JSX.Element {
                     </button>
                   </div>
                 </form>
+
+                {/* Seção de Tags */}
+                <div className="mt-6 border-t border-gray-200 pt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-sm font-semibold text-gray-900">Tags</h3>
+                      {selectedTagIds.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTagIds([])}
+                          className="text-xs text-gray-500 hover:text-red-600 transition-colors"
+                          disabled={isSavingTags}
+                        >
+                          Limpar todas
+                        </button>
+                      )}
+                      {selectedTagIds.length === 0 && !loadingTags && availableTags.length > 0 && (
+                        <span className="text-xs text-gray-400">Sem tags selecionadas</span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!token || !certificate) return;
+                        setIsSavingTags(true);
+                        const response = await updateCertificateTags(
+                          token,
+                          certificate.id,
+                          selectedTagIds,
+                        );
+                        if (response.error) {
+                          setTagsError(response.error);
+                        } else {
+                          setTagsError(null);
+                          // Recarrega o certificado e eventos para atualizar as tags e timeline
+                          const [certResult, eventsResult] = await Promise.all([
+                            getCertificate(token, certificate.id),
+                            listCertificateEvents(token, certificate.id),
+                          ]);
+                          if (certResult.data) {
+                            setCertificate(certResult.data);
+                          }
+                          if (!eventsResult.error && eventsResult.data) {
+                            setEvents(eventsResult.data);
+                          }
+                        }
+                        setIsSavingTags(false);
+                      }}
+                      disabled={isSavingTags || loadingTags}
+                      className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isSavingTags ? 'Salvando...' : 'Salvar tags'}
+                    </button>
+                  </div>
+                  {tagsError && <p className="mt-2 text-xs text-red-600">{tagsError}</p>}
+                  {loadingTags ? (
+                    <p className="mt-3 text-sm text-gray-500">Carregando tags...</p>
+                  ) : availableTags.length === 0 ? (
+                    <p className="mt-3 text-sm text-gray-500">
+                      Nenhuma tag disponível. Crie tags no painel administrativo.
+                    </p>
+                  ) : (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {availableTags.map((tag) => {
+                        const isSelected = selectedTagIds.includes(tag.id);
+                        const hasColor = tag.color?.startsWith('#');
+                        return (
+                          <button
+                            key={tag.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedTagIds((prev) =>
+                                isSelected ? prev.filter((id) => id !== tag.id) : [...prev, tag.id],
+                              );
+                            }}
+                            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-all ${
+                              isSelected
+                                ? 'ring-2 ring-primary-500 ring-offset-1'
+                                : 'opacity-60 hover:opacity-100'
+                            }`}
+                            style={
+                              hasColor
+                                ? {
+                                    backgroundColor: tag.color!,
+                                    color: getContrastColor(tag.color!),
+                                  }
+                                : undefined
+                            }
+                          >
+                            {!hasColor && (
+                              <span
+                                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${
+                                  isSelected
+                                    ? 'bg-gray-200 text-gray-800'
+                                    : 'bg-gray-100 text-gray-600'
+                                }`}
+                              >
+                                {tag.name}
+                              </span>
+                            )}
+                            {hasColor && tag.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
