@@ -124,10 +124,19 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     const currentToken = token ?? getStoredToken();
 
     if (currentToken) {
-      // Tenta fazer logout no backend (ignora erros)
-      await apiLogoutUser(currentToken).catch(() => {
-        // Ignora erros do backend - logout local sempre ocorre
-      });
+      // Tenta fazer logout no backend
+      // Erros não impedem o logout local, mas são registrados para debug
+      try {
+        await apiLogoutUser(currentToken);
+      } catch (error) {
+        // Logout local ocorre mesmo em caso de falha do backend
+        // Erro logado apenas para diagnóstico - não impacta o usuário
+        const isDev = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV === true;
+        if (isDev) {
+          // eslint-disable-next-line no-console
+          console.warn('Falha ao realizar logout no backend:', error);
+        }
+      }
     }
 
     clearAuthData();

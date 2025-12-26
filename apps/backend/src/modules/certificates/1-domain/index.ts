@@ -22,6 +22,32 @@ export type {
   CertificateEventRepositoryContract,
   CreateCertificateEventData,
 } from './contracts/certificate-event.repository.contract';
+export type {
+  CertificateStatusValidationContract,
+  StatusValidationRequirement,
+} from './contracts/certificate-status-validation.contract';
+
+// Services
+export { CertificateAccessControlService } from './services/certificate-access-control.service';
+export type {
+  ClientAllowedFields,
+  AdminAllowedFields,
+  AccessCheckResult,
+} from './services/certificate-access-control.service';
+
+export { CertificateChangeTrackingService } from './services/certificate-change-tracking.service';
+export type {
+  CertificateSnapshot,
+  FieldChange,
+  ChangeMap,
+  CertificateEventType,
+} from './services/certificate-change-tracking.service';
+
+export { CertificateStatusValidationService } from './services/certificate-status-validation.service';
+export type {
+  UserValidationData,
+  StatusValidationResult,
+} from './services/certificate-status-validation.service';
 
 // Errors
 export { CertificateError } from './errors/certificate-errors.enum';

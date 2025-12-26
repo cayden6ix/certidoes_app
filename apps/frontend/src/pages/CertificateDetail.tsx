@@ -19,6 +19,7 @@ import {
   type CertificateTag,
   type PaymentType,
 } from '../lib/api';
+import { formatDate, formatDateTime } from '../lib/date-format';
 
 const PRIORITY_CONFIG: Record<
   Certificate['priority'],
@@ -109,9 +110,9 @@ function formatValue(value: unknown): string {
     const trimmed = value.trim();
     if (!trimmed) return '-';
     if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
-      const date = new Date(trimmed);
-      if (!Number.isNaN(date.getTime())) {
-        return date.toLocaleDateString('pt-BR');
+      const formatted = formatDate(trimmed);
+      if (formatted) {
+        return formatted;
       }
     }
     const isToken = /^[a-z0-9_]+$/.test(trimmed);
@@ -1271,9 +1272,7 @@ export function CertificateDetailPage(): JSX.Element {
                       Data de pagamento
                     </p>
                     <p className="mt-1 text-sm text-gray-900">
-                      {certificate.paymentDate
-                        ? new Date(certificate.paymentDate).toLocaleDateString('pt-BR')
-                        : '-'}
+                      {certificate.paymentDate ? formatDate(certificate.paymentDate) : '-'}
                     </p>
                   </div>
                   <div>
@@ -1343,8 +1342,7 @@ export function CertificateDetailPage(): JSX.Element {
                           </p>
                           <p className="text-xs text-gray-500">
                             {event.actorRole === 'admin' ? 'Admin' : 'Cliente'}
-                            {actorId ? ` (${actorId})` : ''} •{' '}
-                            {new Date(event.createdAt).toLocaleString('pt-BR')}
+                            {actorId ? ` (${actorId})` : ''} • {formatDateTime(event.createdAt)}
                           </p>
                         </div>
                         <span className="text-xs font-medium text-gray-400">

@@ -12,13 +12,13 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    port: parseInt(process.env.VITE_DEV_PORT ?? '5173', 10),
     host: '0.0.0.0',
     proxy: {
       '/api': {
-        target: 'http://certidoes-backend:3000',
+        target: process.env.VITE_API_TARGET ?? 'http://certidoes-backend:3000',
         changeOrigin: true,
-        rewrite: (path) => path,
+        rewrite: (reqPath) => reqPath,
       },
     },
   },

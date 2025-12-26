@@ -11,6 +11,7 @@ import {
   type CertificateTagInfo,
   type PaginatedCertificates,
 } from '../lib/api';
+import { formatDate } from '../lib/date-format';
 
 /**
  * Mapeia prioridade para cores e labels
@@ -493,7 +494,7 @@ export function DashboardPage(): JSX.Element {
                         <Badge config={PRIORITY_CONFIG[cert.priority]} />
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                        {new Date(cert.createdAt).toLocaleDateString('pt-BR')}
+                        {formatDate(cert.createdAt)}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-wrap gap-1">

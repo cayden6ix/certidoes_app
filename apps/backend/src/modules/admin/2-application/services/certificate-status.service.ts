@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Inject } from '@nestjs/common';
 import type { CertificateStatusConfig } from '@shared/types';
+import { CERTIFICATE_STATUS_DEFAULTS } from '@shared/types';
 
 import { SUPABASE_CLIENT } from '../../../supabase/4-infrastructure/di/supabase.tokens';
 import type { TypedSupabaseClient } from '../../../supabase/4-infrastructure/di/supabase.providers';
@@ -145,10 +146,11 @@ export class CertificateStatusService {
       name: params.name.toLowerCase().replace(/\s+/g, '_'),
       display_name: params.displayName,
       description: params.description ?? null,
-      color: params.color ?? '#6b7280',
-      display_order: params.displayOrder ?? 0,
-      can_edit_certificate: params.canEditCertificate ?? true,
-      is_final: params.isFinal ?? false,
+      color: params.color ?? CERTIFICATE_STATUS_DEFAULTS.COLOR,
+      display_order: params.displayOrder ?? CERTIFICATE_STATUS_DEFAULTS.DISPLAY_ORDER,
+      can_edit_certificate:
+        params.canEditCertificate ?? CERTIFICATE_STATUS_DEFAULTS.CAN_EDIT_CERTIFICATE,
+      is_final: params.isFinal ?? CERTIFICATE_STATUS_DEFAULTS.IS_FINAL,
     };
 
     const { data, error } = await this.supabase

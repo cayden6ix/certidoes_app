@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNo
 
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
+import { formatDate as formatDateUtil } from '../lib/date-format';
 import type {
   AdminUser,
   CertificateCatalogType,
@@ -64,10 +65,13 @@ function SectionCard({
   );
 }
 
+/**
+ * Formata uma data para exibição com fallback '-'
+ * Utiliza o utilitário centralizado de formatação de data
+ */
 function formatDate(value: string | null | undefined): string {
-  if (!value) return '-';
-  const date = new Date(value);
-  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+  const formatted = formatDateUtil(value, 'medium');
+  return formatted || '-';
 }
 
 function UsersSection({ token }: { token: string }): JSX.Element {

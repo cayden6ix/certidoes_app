@@ -7,18 +7,30 @@ import type { CertificateEntity } from '../../1-domain/entities/certificate.enti
 import { CertificateError } from '../../1-domain/errors/certificate-errors.enum';
 import type { UpdateCertificateRequestDto } from '../dto/update-certificate-request.dto';
 import type { CertificateStatusValidationContract } from '../../1-domain/contracts/certificate-status-validation.contract';
+import { CertificateAccessControlService } from '../../1-domain/services/certificate-access-control.service';
+import { CertificateChangeTrackingService } from '../../1-domain/services/certificate-change-tracking.service';
+import { CertificateStatusValidationService } from '../../1-domain/services/certificate-status-validation.service';
 
 /**
  * Use Case para atualização de certidão
  * Aplica regras de acesso e restrições de campos baseadas no role
  */
 export class UpdateCertificateUseCase {
+  private readonly accessControl: CertificateAccessControlService;
+  private readonly changeTracking: CertificateChangeTrackingService;
+  private readonly statusValidation: CertificateStatusValidationService;
+
   constructor(
     private readonly certificateRepository: CertificateRepositoryContract,
     private readonly certificateEventRepository: CertificateEventRepositoryContract,
-    private readonly certificateStatusValidation: CertificateStatusValidationContract,
+    private readonly certificateStatusValidationResolver: CertificateStatusValidationContract,
     private readonly logger: LoggerContract,
-  ) {}
+  ) {
+    // Instancia domain services (sem dependências de infraestrutura)
+    this.accessControl = new CertificateAccessControlService();
+    this.changeTracking = new CertificateChangeTrackingService();
+    this.statusValidation = new CertificateStatusValidationService();
+  }
 
   /**
    * Executa a atualização de uma certidão
@@ -34,126 +46,45 @@ export class UpdateCertificateUseCase {
 
     // Busca certidão existente
     const findResult = await this.certificateRepository.findById(request.certificateId);
-
     if (!findResult.success) {
-      this.logger.warn('Certidão não encontrada para atualização', {
-        certificateId: request.certificateId,
-        userId: request.userId,
-      });
+      this.logCertificateNotFound(request);
       return findResult;
     }
 
     const certificate = findResult.data;
 
-    // Verifica permissão de acesso
-    const isAdmin = request.userRole === 'admin';
-    const isOwner = certificate.isOwnedBy(request.userId);
-
-    if (!isAdmin && !isOwner) {
-      this.logger.warn('Acesso negado para atualização de certidão', {
-        certificateId: request.certificateId,
-        userId: request.userId,
-        ownerId: certificate.userId,
-      });
-      return failure(CertificateError.CERTIFICATE_ACCESS_DENIED);
+    // Verifica permissões de acesso
+    const accessResult = this.verifyAccess(certificate, request);
+    if (!accessResult.success) {
+      return accessResult;
     }
 
-    // Verifica se pode ser editada
-    if (!certificate.canBeEdited() && !isAdmin) {
-      this.logger.warn('Certidão não pode ser editada', {
-        certificateId: request.certificateId,
-        status: certificate.status.getName(),
-      });
-      return failure(CertificateError.CERTIFICATE_CANNOT_BE_EDITED);
-    }
-
-    // Filtra campos que cliente NÃO pode editar
-    // Cliente não pode alterar: status, cost, additionalCost, orderNumber, paymentDate, paymentTypeId
-    const allowedData = isAdmin
-      ? request.data
-      : {
-          certificateType: request.data.certificateType,
-          recordNumber: request.data.recordNumber,
-          partiesName: request.data.partiesName,
-          notes: request.data.notes,
-          priority: request.data.priority,
-        };
-
-    // Remove campos undefined
-    const cleanData = Object.fromEntries(
-      Object.entries(allowedData).filter(([, value]) => value !== undefined),
+    const { isAdmin } = this.accessControl.checkAccess(
+      certificate,
+      request.userId,
+      request.userRole,
     );
 
-    // Normaliza strings vazias para não gerar mudanças fictícias
-    for (const key of Object.keys(cleanData)) {
-      const value = cleanData[key as keyof typeof cleanData];
-      if (typeof value === 'string' && value.trim() === '') {
-        delete cleanData[key as keyof typeof cleanData];
-      }
-    }
-
+    // Filtra e limpa dados de atualização
+    const cleanData = this.prepareUpdateData(request.data, request.userRole);
     if (Object.keys(cleanData).length === 0) {
-      this.logger.debug('Nenhum campo para atualizar', {
-        certificateId: request.certificateId,
-      });
-      return findResult; // Retorna a certidão sem alterações
+      this.logger.debug('Nenhum campo para atualizar', { certificateId: request.certificateId });
+      return findResult;
     }
 
-    const nextStatus =
-      typeof cleanData.status === 'string' && cleanData.status.trim()
-        ? cleanData.status.trim()
-        : undefined;
-    const isStatusChanging =
-      isAdmin && nextStatus !== undefined && nextStatus !== certificate.status.getName();
-
-    if (isStatusChanging && nextStatus) {
-      const validationsResult =
-        await this.certificateStatusValidation.fetchActiveValidations(nextStatus);
-
-      if (!validationsResult.success) {
-        return failure(validationsResult.error);
-      }
-
-      const validationRules = validationsResult.data;
-      if (validationRules.length > 0) {
-        const fallbackStatement = 'Eu verifiquei e confirmei as mudanças que estou prestes a fazer';
-        const configuredStatements = validationRules
-          .map((rule) => rule.confirmationText)
-          .filter((value): value is string => Boolean(value?.trim()))
-          .map((value) => value.trim());
-        const uniqueStatements = [...new Set(configuredStatements)];
-        const requiredStatement =
-          uniqueStatements.length > 0 ? uniqueStatements[0] : fallbackStatement;
-        const confirmed = request.validation?.confirmed === true;
-        const statementMatches = (request.validation?.statement ?? '').trim() === requiredStatement;
-
-        if (uniqueStatements.length > 1 || !confirmed || !statementMatches) {
-          return failure(CertificateError.STATUS_VALIDATION_CONFIRMATION_REQUIRED);
-        }
-
-        const isValueFilled = (value: unknown): boolean => {
-          if (value === null || value === undefined) return false;
-          if (typeof value === 'string') return value.trim() !== '';
-          return true;
-        };
-
-        for (const rule of validationRules) {
-          if (!rule.requiredField) continue;
-          const fieldKey = rule.requiredField as keyof typeof cleanData;
-          const certificateRecord = certificate as unknown as Record<string, unknown>;
-          const candidateValue =
-            fieldKey in cleanData ? cleanData[fieldKey] : certificateRecord[fieldKey as string];
-
-          if (!isValueFilled(candidateValue)) {
-            return failure(CertificateError.STATUS_VALIDATION_REQUIRED_FIELD);
-          }
-        }
-      }
+    // Valida mudança de status (se aplicável)
+    const statusValidationResult = await this.validateStatusChangeIfNeeded(
+      certificate,
+      cleanData,
+      isAdmin,
+      request.validation,
+    );
+    if (!statusValidationResult.success) {
+      return statusValidationResult;
     }
 
-    // Atualiza no repositório
+    // Executa atualização no repositório
     const updateResult = await this.certificateRepository.update(request.certificateId, cleanData);
-
     if (!updateResult.success) {
       this.logger.error('Erro ao atualizar certidão', {
         certificateId: request.certificateId,
@@ -168,65 +99,119 @@ export class UpdateCertificateUseCase {
       updatedFields: Object.keys(cleanData),
     });
 
-    const previousSnapshot = {
-      certificateType: certificate.certificateType,
-      recordNumber: certificate.recordNumber,
-      partiesName: certificate.partiesName,
-      notes: certificate.notes,
-      priority: certificate.priority.getValue(),
-      status: certificate.status.getName(),
-      cost: certificate.cost,
-      additionalCost: certificate.additionalCost,
-      orderNumber: certificate.orderNumber,
-      paymentType: certificate.paymentType ?? certificate.paymentTypeId ?? null,
-      paymentTypeId: certificate.paymentTypeId ?? null,
-      paymentDate: certificate.paymentDate ? certificate.paymentDate.toISOString() : null,
-    };
-    const updatedSnapshot = {
-      certificateType: updateResult.data.certificateType,
-      recordNumber: updateResult.data.recordNumber,
-      partiesName: updateResult.data.partiesName,
-      notes: updateResult.data.notes,
-      priority: updateResult.data.priority.getValue(),
-      status: updateResult.data.status.getName(),
-      cost: updateResult.data.cost,
-      additionalCost: updateResult.data.additionalCost,
-      orderNumber: updateResult.data.orderNumber,
-      paymentType:
-        updateResult.data.paymentType ??
-        updateResult.data.paymentTypeId ??
-        cleanData.paymentTypeId ??
-        null,
-      paymentTypeId: updateResult.data.paymentTypeId ?? cleanData.paymentTypeId ?? null,
-      paymentDate: updateResult.data.paymentDate
-        ? updateResult.data.paymentDate.toISOString()
-        : null,
-    };
+    // Registra evento de auditoria
+    await this.recordAuditEvent(certificate, updateResult.data, cleanData, request);
 
-    const normalizeEmpty = (value: unknown): unknown => {
-      if (value === undefined || value === null || value === '') return null;
-      return value;
-    };
+    return updateResult;
+  }
 
-    const changeFields = Object.keys(cleanData);
+  /**
+   * Verifica permissões de acesso à certidão
+   */
+  private verifyAccess(
+    certificate: CertificateEntity,
+    request: UpdateCertificateRequestDto,
+  ): Result<void> {
+    const access = this.accessControl.checkAccess(certificate, request.userId, request.userRole);
 
-    const changes = changeFields.reduce<Record<string, unknown>>((acc, field) => {
-      if (field === 'status') {
-        acc[field] = {
-          before: normalizeEmpty(previousSnapshot.status),
-          after: normalizeEmpty(updatedSnapshot.status ?? cleanData.status ?? null),
-        };
-      } else {
-        acc[field] = {
-          before: normalizeEmpty((previousSnapshot as Record<string, unknown>)[field]),
-          after: normalizeEmpty((updatedSnapshot as Record<string, unknown>)[field]),
-        };
-      }
-      return acc;
-    }, {});
+    if (!access.canAccess) {
+      this.logger.warn('Acesso negado para atualização de certidão', {
+        certificateId: request.certificateId,
+        userId: request.userId,
+        ownerId: certificate.userId,
+      });
+      return failure(CertificateError.CERTIFICATE_ACCESS_DENIED);
+    }
 
-    const eventType =
-      changeFields.length === 1 && changeFields[0] === 'status' ? 'status_changed' : 'updated';
+    if (!access.canEdit) {
+      this.logger.warn('Certidão não pode ser editada', {
+        certificateId: request.certificateId,
+        status: certificate.status.getName(),
+      });
+      return failure(CertificateError.CERTIFICATE_CANNOT_BE_EDITED);
+    }
+
+    return { success: true, data: undefined };
+  }
+
+  /**
+   * Prepara dados de atualização (filtra e limpa)
+   */
+  private prepareUpdateData(
+    data: UpdateCertificateRequestDto['data'],
+    userRole: 'client' | 'admin',
+  ): Record<string, unknown> {
+    const filteredData = this.accessControl.filterFieldsByRole(data, userRole);
+    return this.accessControl.cleanUpdateData(filteredData) as Record<string, unknown>;
+  }
+
+  /**
+   * Valida mudança de status se necessário
+   */
+  private async validateStatusChangeIfNeeded(
+    certificate: CertificateEntity,
+    cleanData: Record<string, unknown>,
+    isAdmin: boolean,
+    validation: UpdateCertificateRequestDto['validation'],
+  ): Promise<Result<void>> {
+    const nextStatus = this.changeTracking.detectStatusChange(
+      certificate.status.getName(),
+      cleanData,
+      isAdmin,
+    );
+
+    if (!nextStatus) {
+      return { success: true, data: undefined };
+    }
+
+    // Busca validações configuradas para o status
+    const validationsResult =
+      await this.certificateStatusValidationResolver.fetchActiveValidations(nextStatus);
+
+    if (!validationsResult.success) {
+      return failure(validationsResult.error);
+    }
+
+    // Valida regras de mudança de status
+    const validationResult = this.statusValidation.validateStatusChange(
+      validationsResult.data,
+      validation,
+      certificate,
+      cleanData,
+    );
+
+    if (!validationResult.isValid) {
+      return failure(
+        validationResult.errorCode === 'CONFIRMATION_REQUIRED'
+          ? CertificateError.STATUS_VALIDATION_CONFIRMATION_REQUIRED
+          : CertificateError.STATUS_VALIDATION_REQUIRED_FIELD,
+      );
+    }
+
+    return { success: true, data: undefined };
+  }
+
+  /**
+   * Registra evento de auditoria
+   */
+  private async recordAuditEvent(
+    originalCertificate: CertificateEntity,
+    updatedCertificate: CertificateEntity,
+    cleanData: Record<string, unknown>,
+    request: UpdateCertificateRequestDto,
+  ): Promise<void> {
+    const previousSnapshot = this.changeTracking.createSnapshot(originalCertificate);
+    const updatedSnapshot = this.changeTracking.createUpdatedSnapshot(
+      updatedCertificate,
+      cleanData,
+    );
+    const changedFields = Object.keys(cleanData);
+    const changes = this.changeTracking.calculateChanges(
+      previousSnapshot,
+      updatedSnapshot,
+      changedFields,
+    );
+    const eventType = this.changeTracking.determineEventType(changedFields);
 
     const eventResult = await this.certificateEventRepository.create({
       certificateId: request.certificateId,
@@ -243,7 +228,15 @@ export class UpdateCertificateUseCase {
         error: eventResult.error,
       });
     }
+  }
 
-    return updateResult;
+  /**
+   * Log helper para certidão não encontrada
+   */
+  private logCertificateNotFound(request: UpdateCertificateRequestDto): void {
+    this.logger.warn('Certidão não encontrada para atualização', {
+      certificateId: request.certificateId,
+      userId: request.userId,
+    });
   }
 }

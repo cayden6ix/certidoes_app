@@ -12,6 +12,7 @@ import type { CertificatePriority } from '../../../../supabase/1-domain/types/da
 import type { CertificateRow } from '../types/certificate-row.types';
 import { PRIORITY_TO_DB } from '../types/certificate-row.types';
 import type { CertificateStatusInfo } from '@shared/types';
+import { CERTIFICATE_STATUS_COLORS, CERTIFICATE_STATUS_DEFAULTS } from '@shared/types';
 
 /**
  * Status padrão para certificados sem status definido
@@ -20,9 +21,9 @@ const DEFAULT_STATUS_INFO: CertificateStatusInfo = {
   id: '',
   name: 'pending',
   displayName: 'Pendente',
-  color: '#f59e0b',
-  canEditCertificate: true,
-  isFinal: false,
+  color: CERTIFICATE_STATUS_COLORS.PENDING,
+  canEditCertificate: CERTIFICATE_STATUS_DEFAULTS.CAN_EDIT_CERTIFICATE,
+  isFinal: CERTIFICATE_STATUS_DEFAULTS.IS_FINAL,
 };
 
 /**
@@ -150,10 +151,11 @@ export class CertificateMapper {
 
   /**
    * Resolve o nome das partes de diferentes colunas possíveis
-   * O banco pode ter parties_name, parties_names ou party_names
+   * Ordem de prioridade: party_names (preferencial) > parties_names > parties_name
+   * @see CertificateRow para detalhes sobre campos legados
    */
   resolvePartiesName(row: CertificateRow): string {
-    const value = row.parties_name ?? row.parties_names ?? row.party_names;
+    const value = row.party_names ?? row.parties_names ?? row.parties_name;
 
     if (!value) {
       return '';
@@ -167,10 +169,12 @@ export class CertificateMapper {
   }
 
   /**
-   * Resolve notas de diferentes colunas possíveis
+   * Resolve notas/observações de diferentes colunas possíveis
+   * Ordem de prioridade: observations (preferencial) > notes
+   * @see CertificateRow para detalhes sobre campos legados
    */
   resolveNotes(row: CertificateRow): string | null {
-    return row.notes ?? row.observations ?? null;
+    return row.observations ?? row.notes ?? null;
   }
 
   /**

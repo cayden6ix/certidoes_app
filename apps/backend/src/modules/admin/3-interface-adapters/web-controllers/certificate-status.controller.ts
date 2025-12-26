@@ -1,10 +1,12 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
   HttpCode,
   Inject,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -12,6 +14,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+
 import type { LoggerContract } from '../../../../shared/1-domain/contracts/logger.contract';
 import { LOGGER_CONTRACT } from '../../../../shared/1-domain/contracts/logger.contract';
 import { PaginationService } from '../../../../shared/2-application/services/pagination.service';
@@ -20,20 +23,48 @@ import { RolesGuard } from '../../../auth/3-interface-adapters/guards/roles.guar
 import { Roles } from '../../../auth/3-interface-adapters/decorators/roles.decorator';
 import { CurrentUser } from '../../../auth/3-interface-adapters/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../../auth/3-interface-adapters/types/express-request.types';
-import { CertificateStatusService } from '../../2-application/services/certificate-status.service';
+
+import type { ListCertificateStatusUseCase } from '../../2-application/use-cases/certificate-status/list-certificate-status.usecase';
+import type { FindCertificateStatusByIdUseCase } from '../../2-application/use-cases/certificate-status/find-certificate-status-by-id.usecase';
+import type { CreateCertificateStatusUseCase } from '../../2-application/use-cases/certificate-status/create-certificate-status.usecase';
+import type { UpdateCertificateStatusUseCase } from '../../2-application/use-cases/certificate-status/update-certificate-status.usecase';
+import type { RemoveCertificateStatusUseCase } from '../../2-application/use-cases/certificate-status/remove-certificate-status.usecase';
+
+import {
+  LIST_CERTIFICATE_STATUS_USECASE,
+  FIND_CERTIFICATE_STATUS_BY_ID_USECASE,
+  CREATE_CERTIFICATE_STATUS_USECASE,
+  UPDATE_CERTIFICATE_STATUS_USECASE,
+  REMOVE_CERTIFICATE_STATUS_USECASE,
+} from '../../4-infrastructure/di/admin.tokens';
+
 import {
   CreateCertificateStatusDto,
   ListCertificateStatusQueryDto,
   UpdateCertificateStatusDto,
 } from '../api-dto/certificate-status.dto';
 
+/**
+ * Controller para gerenciamento de status de certidão
+ * Segue o padrão de Interface Adapters da Clean Architecture
+ */
 @Controller('admin/certificate-statuses')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin')
 export class CertificateStatusController {
   constructor(
-    private readonly certificateStatusService: CertificateStatusService,
-    @Inject(LOGGER_CONTRACT) private readonly logger: LoggerContract,
+    @Inject(LIST_CERTIFICATE_STATUS_USECASE)
+    private readonly listCertificateStatusUseCase: ListCertificateStatusUseCase,
+    @Inject(FIND_CERTIFICATE_STATUS_BY_ID_USECASE)
+    private readonly findCertificateStatusByIdUseCase: FindCertificateStatusByIdUseCase,
+    @Inject(CREATE_CERTIFICATE_STATUS_USECASE)
+    private readonly createCertificateStatusUseCase: CreateCertificateStatusUseCase,
+    @Inject(UPDATE_CERTIFICATE_STATUS_USECASE)
+    private readonly updateCertificateStatusUseCase: UpdateCertificateStatusUseCase,
+    @Inject(REMOVE_CERTIFICATE_STATUS_USECASE)
+    private readonly removeCertificateStatusUseCase: RemoveCertificateStatusUseCase,
+    @Inject(LOGGER_CONTRACT)
+    private readonly logger: LoggerContract,
   ) {}
 
   /**
@@ -49,16 +80,20 @@ export class CertificateStatusController {
       offset: query.offset,
     });
 
-    const result = await this.certificateStatusService.list({
+    const result = await this.listCertificateStatusUseCase.execute({
       search: query.search,
       includeInactive: query.includeInactive,
       limit: pagination.limit,
       offset: pagination.offset,
     });
 
+    if (!result.success) {
+      throw new BadRequestException(result.error);
+    }
+
     return {
-      data: result.data,
-      total: result.total,
+      data: result.data.data,
+      total: result.data.total,
       limit: pagination.limit,
       offset: pagination.offset,
     };
@@ -70,7 +105,17 @@ export class CertificateStatusController {
   @Get(':id')
   @HttpCode(200)
   async findById(@Param('id', ParseUUIDPipe) id: string) {
-    return this.certificateStatusService.findById(id);
+    const result = await this.findCertificateStatusByIdUseCase.execute(id);
+
+    if (!result.success) {
+      throw new BadRequestException(result.error);
+    }
+
+    if (result.data === null) {
+      throw new NotFoundException('Status não encontrado');
+    }
+
+    return result.data;
   }
 
   /**
@@ -85,7 +130,7 @@ export class CertificateStatusController {
       userId: user.userId,
     });
 
-    return this.certificateStatusService.create({
+    const result = await this.createCertificateStatusUseCase.execute({
       name: dto.name,
       displayName: dto.displayName,
       description: dto.description,
@@ -94,6 +139,12 @@ export class CertificateStatusController {
       canEditCertificate: dto.canEditCertificate,
       isFinal: dto.isFinal,
     });
+
+    if (!result.success) {
+      throw new BadRequestException(result.error);
+    }
+
+    return result.data;
   }
 
   /**
@@ -107,7 +158,7 @@ export class CertificateStatusController {
       fields: Object.keys(dto),
     });
 
-    return this.certificateStatusService.update(id, {
+    const result = await this.updateCertificateStatusUseCase.execute(id, {
       displayName: dto.displayName,
       description: dto.description,
       color: dto.color,
@@ -116,6 +167,12 @@ export class CertificateStatusController {
       canEditCertificate: dto.canEditCertificate,
       isFinal: dto.isFinal,
     });
+
+    if (!result.success) {
+      throw new BadRequestException(result.error);
+    }
+
+    return result.data;
   }
 
   /**
@@ -125,6 +182,11 @@ export class CertificateStatusController {
   @HttpCode(204)
   async remove(@Param('id', ParseUUIDPipe) id: string) {
     this.logger.debug('Removendo status de certidão', { id });
-    await this.certificateStatusService.remove(id);
+
+    const result = await this.removeCertificateStatusUseCase.execute(id);
+
+    if (!result.success) {
+      throw new BadRequestException(result.error);
+    }
   }
 }

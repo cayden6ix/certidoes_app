@@ -20,7 +20,9 @@ import type {
   TablesUpdate,
 } from '../../../supabase/1-domain/types/database.types';
 import type { CertificateRow } from './types/certificate-row.types';
+import { PRIORITY_TO_DB } from './types/certificate-row.types';
 import { CertificateMapper } from './mappers/certificate.mapper';
+import { CertificatePriorityValueObject } from '../../1-domain/value-objects/certificate-priority.value-object';
 import { CertificateTypeResolver } from './services/certificate-type.resolver';
 import { CertificateStatusResolver } from './services/certificate-status.resolver';
 import { CertificateSearchHelper } from './helpers/search.helper';
@@ -196,9 +198,8 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
         query = query.eq('status_id', statusIdFilter);
       }
 
-      if (options.priority) {
-        const priorityValue = options.priority === 'urgent' ? 2 : 1;
-        query = query.eq('priority', priorityValue);
+      if (options.priority && CertificatePriorityValueObject.isValid(options.priority)) {
+        query = query.eq('priority', PRIORITY_TO_DB[options.priority]);
       }
 
       if (searchValue) {

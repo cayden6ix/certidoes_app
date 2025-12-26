@@ -102,12 +102,6 @@ export function LoginPage(): JSX.Element {
             </button>
           </div>
         </form>
-
-        <div className="mt-4 text-center text-xs text-gray-500">
-          <p>Dados de teste:</p>
-          <p>Email: client@example.com</p>
-          <p>Admin: admin@example.com</p>
-        </div>
       </div>
     </div>
   );

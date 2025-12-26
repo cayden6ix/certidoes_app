@@ -4,6 +4,33 @@
  */
 
 /**
+ * Cores padrão utilizadas para status de certidões
+ * Estas cores seguem a paleta Tailwind CSS
+ */
+export const CERTIFICATE_STATUS_COLORS = {
+  /** Cor padrão para status pendente (amber-500) */
+  PENDING: '#f59e0b',
+  /** Cor padrão para status não definido (gray-500) */
+  DEFAULT: '#6b7280',
+  /** Cor para status de sucesso (green-500) */
+  SUCCESS: '#22c55e',
+  /** Cor para status de erro (red-500) */
+  ERROR: '#ef4444',
+  /** Cor para status de informação (blue-500) */
+  INFO: '#3b82f6',
+} as const;
+
+/**
+ * Valores padrão para criação de novos status
+ */
+export const CERTIFICATE_STATUS_DEFAULTS = {
+  COLOR: CERTIFICATE_STATUS_COLORS.DEFAULT,
+  DISPLAY_ORDER: 0,
+  CAN_EDIT_CERTIFICATE: true,
+  IS_FINAL: false,
+} as const;
+
+/**
  * Dados completos de um status de certidão
  */
 export interface CertificateStatusConfig {
