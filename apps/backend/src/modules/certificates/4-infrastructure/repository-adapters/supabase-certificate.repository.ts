@@ -18,11 +18,11 @@ import type {
   Tables,
   TablesInsert,
   TablesUpdate,
-  CertificateStatus,
 } from '../../../supabase/1-domain/types/database.types';
 import type { CertificateRow } from './types/certificate-row.types';
 import { CertificateMapper } from './mappers/certificate.mapper';
 import { CertificateTypeResolver } from './services/certificate-type.resolver';
+import { CertificateStatusResolver } from './services/certificate-status.resolver';
 import { CertificateSearchHelper } from './helpers/search.helper';
 
 /**
@@ -37,6 +37,7 @@ import { CertificateSearchHelper } from './helpers/search.helper';
 export class SupabaseCertificateRepository implements CertificateRepositoryContract {
   private readonly mapper: CertificateMapper;
   private readonly typeResolver: CertificateTypeResolver;
+  private readonly statusResolver: CertificateStatusResolver;
 
   constructor(
     private readonly supabaseClient: TypedSupabaseClient,
@@ -44,6 +45,7 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
   ) {
     this.mapper = new CertificateMapper(logger);
     this.typeResolver = new CertificateTypeResolver(supabaseClient, logger);
+    this.statusResolver = new CertificateStatusResolver(supabaseClient, logger);
     this.logger.debug('Repositório de certidões Supabase inicializado');
   }
 
@@ -58,7 +60,12 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
         return failure(typeIdResult.error);
       }
 
-      const insertData = this.buildInsertData(data, typeIdResult.data);
+      const defaultStatusResult = await this.statusResolver.getDefaultStatusId();
+      if (!defaultStatusResult.success) {
+        return failure(defaultStatusResult.error);
+      }
+
+      const insertData = this.buildInsertData(data, typeIdResult.data, defaultStatusResult.data);
 
       const { data: insertedData, error } = await this.supabaseClient
         .from('certificates')
@@ -76,8 +83,11 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
 
       const typedInsertedData = insertedData as Tables<'certificates'>;
       const row = this.mapDatabaseRowToCertificateRow(typedInsertedData);
+      // Busca informações do status padrão
+      const statusInfoMap = await this.statusResolver.fetchStatusInfoMap([row.status_id]);
+      const statusInfo = statusInfoMap.get(row.status_id);
       // Certidão recém-criada não tem tags
-      const entity = this.mapper.mapToEntity(row, data.certificateType, null, []);
+      const entity = this.mapper.mapToEntity(row, data.certificateType, null, [], statusInfo);
 
       if (!entity) {
         return failure(CertificateError.UNEXPECTED_ERROR);
@@ -118,12 +128,20 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
       const paymentTypeNameMap = await this.fetchPaymentTypeNameMap(
         row.payment_type_id ? [row.payment_type_id] : [],
       );
+      const statusInfoMap = await this.statusResolver.fetchStatusInfoMap([row.status_id]);
       const tagsMap = await this.fetchTagsMap([id]);
       const tags = tagsMap.get(id) ?? [];
 
       const certificateTypeName = this.mapper.resolveCertificateTypeName(row, typeNameMap);
       const paymentTypeName = this.mapper.resolvePaymentTypeName(row, paymentTypeNameMap);
-      const entity = this.mapper.mapToEntity(row, certificateTypeName, paymentTypeName, tags);
+      const statusInfo = statusInfoMap.get(row.status_id);
+      const entity = this.mapper.mapToEntity(
+        row,
+        certificateTypeName,
+        paymentTypeName,
+        tags,
+        statusInfo,
+      );
 
       if (!entity) {
         return failure(CertificateError.UNEXPECTED_ERROR);
@@ -149,6 +167,15 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
         ? await this.typeResolver.findTypeIdsBySearch(searchValue)
         : [];
 
+      // Se filtrar por status (nome), resolve o ID primeiro
+      let statusIdFilter: string | undefined;
+      if (options.status) {
+        const statusIdResult = await this.statusResolver.resolveStatusId(options.status);
+        if (statusIdResult.success) {
+          statusIdFilter = statusIdResult.data;
+        }
+      }
+
       // Inicia query base
       let query = this.supabaseClient.from('certificates').select('*', { count: 'exact' });
 
@@ -165,8 +192,8 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
         query = query.lte('created_at', options.to);
       }
 
-      if (options.status) {
-        query = query.eq('status', options.status as CertificateStatus);
+      if (statusIdFilter) {
+        query = query.eq('status_id', statusIdFilter);
       }
 
       if (options.priority) {
@@ -209,8 +236,10 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
       const certificateIds = rows.map((row) => row.id);
       const typeIds = this.extractTypeIds(rows);
       const paymentTypeIds = this.extractPaymentTypeIds(rows);
+      const statusIds = this.extractStatusIds(rows);
       const typeNameMap = await this.typeResolver.fetchTypeNameMap(typeIds);
       const paymentTypeNameMap = await this.fetchPaymentTypeNameMap(paymentTypeIds);
+      const statusInfoMap = await this.statusResolver.fetchStatusInfoMap(statusIds);
       const tagsMap = await this.fetchTagsMap(certificateIds);
 
       const entities = this.mapper.mapManyToEntities(
@@ -218,6 +247,7 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
         typeNameMap,
         paymentTypeNameMap,
         tagsMap,
+        statusInfoMap,
       );
 
       return success({
@@ -269,12 +299,20 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
       const paymentTypeNameMap = await this.fetchPaymentTypeNameMap(
         row.payment_type_id ? [row.payment_type_id] : [],
       );
+      const statusInfoMap = await this.statusResolver.fetchStatusInfoMap([row.status_id]);
       const tagsMap = await this.fetchTagsMap([id]);
       const tags = tagsMap.get(id) ?? [];
 
       const certificateTypeName = this.mapper.resolveCertificateTypeName(row, typeNameMap);
       const paymentTypeName = this.mapper.resolvePaymentTypeName(row, paymentTypeNameMap);
-      const entity = this.mapper.mapToEntity(row, certificateTypeName, paymentTypeName, tags);
+      const statusInfo = statusInfoMap.get(row.status_id);
+      const entity = this.mapper.mapToEntity(
+        row,
+        certificateTypeName,
+        paymentTypeName,
+        tags,
+        statusInfo,
+      );
 
       if (!entity) {
         return failure(CertificateError.UNEXPECTED_ERROR);
@@ -320,7 +358,7 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
       party_names: row.party_names ?? undefined,
       observations: row.observations,
       priority: row.priority,
-      status: row.status,
+      status_id: row.status_id,
       cost: row.cost,
       additional_cost: row.additional_cost,
       order_number: row.order_number,
@@ -337,6 +375,7 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
   private buildInsertData(
     data: CreateCertificateData,
     certificateTypeId: string,
+    statusId: string,
   ): TablesInsert<'certificates'> {
     return {
       user_id: data.userId,
@@ -346,6 +385,7 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
       observations: data.notes ?? null,
       priority: this.mapper.mapPriorityToDb(data.priority ?? 'normal'),
       payment_type_id: data.paymentTypeId ?? null,
+      status_id: statusId,
     };
   }
 
@@ -358,13 +398,16 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
     const updateData: TablesUpdate<'certificates'> = {};
 
     if (data.certificateType !== undefined) {
-      const typeIdResult = await this.typeResolver.resolveTypeId(data.certificateType);
+      const trimmedType = data.certificateType.trim();
+      if (trimmedType) {
+        const typeIdResult = await this.typeResolver.resolveTypeId(trimmedType);
 
-      if (!typeIdResult.success) {
-        return failure(typeIdResult.error);
+        if (!typeIdResult.success) {
+          return failure(typeIdResult.error);
+        }
+
+        updateData.certificate_type_id = typeIdResult.data;
       }
-
-      updateData.certificate_type_id = typeIdResult.data;
     }
 
     if (data.recordNumber !== undefined) {
@@ -384,7 +427,10 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
     }
 
     if (data.status !== undefined) {
-      updateData.status = data.status;
+      const statusIdResult = await this.statusResolver.resolveStatusId(data.status);
+      if (statusIdResult.success) {
+        updateData.status_id = statusIdResult.data;
+      }
     }
 
     if (data.cost !== undefined) {
@@ -404,7 +450,9 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
     }
 
     if (data.paymentTypeId !== undefined) {
-      updateData.payment_type_id = data.paymentTypeId ?? null;
+      const paymentTypeId =
+        data.paymentTypeId && data.paymentTypeId.trim() !== '' ? data.paymentTypeId : null;
+      updateData.payment_type_id = paymentTypeId;
     }
 
     return success(updateData);
@@ -426,6 +474,13 @@ export class SupabaseCertificateRepository implements CertificateRepositoryContr
     return rows
       .map((row) => row.payment_type_id)
       .filter((value): value is string => Boolean(value));
+  }
+
+  /**
+   * Extrai IDs de status
+   */
+  private extractStatusIds(rows: CertificateRow[]): string[] {
+    return [...new Set(rows.map((row) => row.status_id))];
   }
 
   /**

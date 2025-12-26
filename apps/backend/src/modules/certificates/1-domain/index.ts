@@ -6,7 +6,7 @@ export type { CertificateEventEntityProps } from './entities/certificate-event.e
 
 // Value Objects
 export { CertificateStatusValueObject } from './value-objects/certificate-status.value-object';
-export type { CertificateStatusType } from './value-objects/certificate-status.value-object';
+export type { CertificateStatusData } from './value-objects/certificate-status.value-object';
 export { CertificatePriorityValueObject } from './value-objects/certificate-priority.value-object';
 export type { CertificatePriorityType } from './value-objects/certificate-priority.value-object';
 

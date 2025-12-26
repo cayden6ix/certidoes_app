@@ -13,12 +13,16 @@ export class UpdateCertificateRequestDto {
       partiesName?: string;
       notes?: string;
       priority?: 'normal' | 'urgent';
-      status?: 'pending' | 'in_progress' | 'completed' | 'canceled';
+      status?: string;
       cost?: number;
       additionalCost?: number;
       orderNumber?: string;
       paymentDate?: Date;
       paymentTypeId?: string | null;
+    },
+    public readonly validation?: {
+      confirmed?: boolean;
+      statement?: string;
     },
   ) {}
 }

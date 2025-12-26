@@ -1,4 +1,4 @@
-import { IsOptional, IsIn, IsInt, Min, Max, IsString, IsDateString } from 'class-validator';
+import { IsOptional, IsInt, Min, Max, IsString, IsDateString, IsIn } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 /**
@@ -19,9 +19,7 @@ export class ListCertificatesQueryDto {
   to?: string;
 
   @IsOptional()
-  @IsIn(['pending', 'in_progress', 'completed', 'canceled'], {
-    message: 'Status deve ser "pending", "in_progress", "completed" ou "canceled"',
-  })
+  @IsString({ message: 'Status deve ser uma string' })
   status?: string;
 
   @IsOptional()

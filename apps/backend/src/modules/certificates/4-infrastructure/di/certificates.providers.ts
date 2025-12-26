@@ -3,6 +3,7 @@ import { LOGGER_CONTRACT } from '../../../../shared/1-domain/contracts/logger.co
 import type { LoggerContract } from '../../../../shared/1-domain/contracts/logger.contract';
 import type { CertificateEventRepositoryContract } from '../../1-domain/contracts/certificate-event.repository.contract';
 import type { CertificateRepositoryContract } from '../../1-domain/contracts/certificate.repository.contract';
+import type { CertificateStatusValidationContract } from '../../1-domain/contracts/certificate-status-validation.contract';
 import { CreateCertificateUseCase } from '../../2-application/use-cases/create-certificate.usecase';
 import { ListCertificatesUseCase } from '../../2-application/use-cases/list-certificates.usecase';
 import { GetCertificateUseCase } from '../../2-application/use-cases/get-certificate.usecase';
@@ -10,11 +11,13 @@ import { UpdateCertificateUseCase } from '../../2-application/use-cases/update-c
 import { ListCertificateEventsUseCase } from '../../2-application/use-cases/list-certificate-events.usecase';
 import { SupabaseCertificateEventRepository } from '../repository-adapters/supabase-certificate-event.repository';
 import { SupabaseCertificateRepository } from '../repository-adapters/supabase-certificate.repository';
+import { CertificateStatusValidationResolver } from '../repository-adapters/services/certificate-status-validation.resolver';
 import { SUPABASE_CLIENT } from '../../../supabase/4-infrastructure/di/supabase.tokens';
 import type { TypedSupabaseClient } from '../../../supabase/4-infrastructure/di/supabase.providers';
 import {
   CERTIFICATE_EVENT_REPOSITORY_CONTRACT,
   CERTIFICATE_REPOSITORY_CONTRACT,
+  CERTIFICATE_STATUS_VALIDATION_CONTRACT,
   CREATE_CERTIFICATE_USECASE,
   LIST_CERTIFICATES_USECASE,
   GET_CERTIFICATE_USECASE,
@@ -47,6 +50,16 @@ export const certificatesProviders: Provider[] = [
       logger: LoggerContract,
     ): CertificateEventRepositoryContract => {
       return new SupabaseCertificateEventRepository(supabaseClient, logger);
+    },
+    inject: [SUPABASE_CLIENT, LOGGER_CONTRACT],
+  },
+  {
+    provide: CERTIFICATE_STATUS_VALIDATION_CONTRACT,
+    useFactory: (
+      supabaseClient: TypedSupabaseClient,
+      logger: LoggerContract,
+    ): CertificateStatusValidationContract => {
+      return new CertificateStatusValidationResolver(supabaseClient, logger);
     },
     inject: [SUPABASE_CLIENT, LOGGER_CONTRACT],
   },
@@ -100,17 +113,20 @@ export const certificatesProviders: Provider[] = [
     useFactory: (
       certificateRepository: CertificateRepositoryContract,
       certificateEventRepository: CertificateEventRepositoryContract,
+      certificateStatusValidation: CertificateStatusValidationContract,
       logger: LoggerContract,
     ): UpdateCertificateUseCase => {
       return new UpdateCertificateUseCase(
         certificateRepository,
         certificateEventRepository,
+        certificateStatusValidation,
         logger,
       );
     },
     inject: [
       CERTIFICATE_REPOSITORY_CONTRACT,
       CERTIFICATE_EVENT_REPOSITORY_CONTRACT,
+      CERTIFICATE_STATUS_VALIDATION_CONTRACT,
       LOGGER_CONTRACT,
     ],
   },

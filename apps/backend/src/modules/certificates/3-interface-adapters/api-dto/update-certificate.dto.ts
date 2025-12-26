@@ -1,3 +1,4 @@
+import { Type } from 'class-transformer';
 import {
   IsString,
   IsOptional,
@@ -6,6 +7,7 @@ import {
   IsNumber,
   Min,
   IsDateString,
+  IsBoolean,
 } from 'class-validator';
 
 /**
@@ -46,10 +48,8 @@ export class UpdateCertificateClientApiDto {
  */
 export class UpdateCertificateAdminApiDto extends UpdateCertificateClientApiDto {
   @IsOptional()
-  @IsIn(['pending', 'in_progress', 'completed', 'canceled'], {
-    message: 'Status deve ser "pending", "in_progress", "completed" ou "canceled"',
-  })
-  status?: 'pending' | 'in_progress' | 'completed' | 'canceled';
+  @IsString()
+  status?: string;
 
   @IsOptional()
   @IsNumber({}, { message: 'Custo deve ser um número' })
@@ -73,4 +73,14 @@ export class UpdateCertificateAdminApiDto extends UpdateCertificateClientApiDto 
   @IsOptional()
   @IsString({ message: 'Tipo de pagamento deve ser uma string' })
   paymentTypeId?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  validationConfirmed?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  validationStatement?: string;
 }

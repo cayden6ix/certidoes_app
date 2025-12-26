@@ -6,6 +6,7 @@ import type { CertificateEventRepositoryContract } from '../../1-domain/contract
 import type { CertificateEntity } from '../../1-domain/entities/certificate.entity';
 import { CertificateError } from '../../1-domain/errors/certificate-errors.enum';
 import type { UpdateCertificateRequestDto } from '../dto/update-certificate-request.dto';
+import type { CertificateStatusValidationContract } from '../../1-domain/contracts/certificate-status-validation.contract';
 
 /**
  * Use Case para atualização de certidão
@@ -15,6 +16,7 @@ export class UpdateCertificateUseCase {
   constructor(
     private readonly certificateRepository: CertificateRepositoryContract,
     private readonly certificateEventRepository: CertificateEventRepositoryContract,
+    private readonly certificateStatusValidation: CertificateStatusValidationContract,
     private readonly logger: LoggerContract,
   ) {}
 
@@ -60,7 +62,7 @@ export class UpdateCertificateUseCase {
     if (!certificate.canBeEdited() && !isAdmin) {
       this.logger.warn('Certidão não pode ser editada', {
         certificateId: request.certificateId,
-        status: certificate.status.getValue(),
+        status: certificate.status.getName(),
       });
       return failure(CertificateError.CERTIFICATE_CANNOT_BE_EDITED);
     }
@@ -82,11 +84,71 @@ export class UpdateCertificateUseCase {
       Object.entries(allowedData).filter(([, value]) => value !== undefined),
     );
 
+    // Normaliza strings vazias para não gerar mudanças fictícias
+    for (const key of Object.keys(cleanData)) {
+      const value = cleanData[key as keyof typeof cleanData];
+      if (typeof value === 'string' && value.trim() === '') {
+        delete cleanData[key as keyof typeof cleanData];
+      }
+    }
+
     if (Object.keys(cleanData).length === 0) {
       this.logger.debug('Nenhum campo para atualizar', {
         certificateId: request.certificateId,
       });
       return findResult; // Retorna a certidão sem alterações
+    }
+
+    const nextStatus =
+      typeof cleanData.status === 'string' && cleanData.status.trim()
+        ? cleanData.status.trim()
+        : undefined;
+    const isStatusChanging =
+      isAdmin && nextStatus !== undefined && nextStatus !== certificate.status.getName();
+
+    if (isStatusChanging && nextStatus) {
+      const validationsResult =
+        await this.certificateStatusValidation.fetchActiveValidations(nextStatus);
+
+      if (!validationsResult.success) {
+        return failure(validationsResult.error);
+      }
+
+      const validationRules = validationsResult.data;
+      if (validationRules.length > 0) {
+        const fallbackStatement = 'Eu verifiquei e confirmei as mudanças que estou prestes a fazer';
+        const configuredStatements = validationRules
+          .map((rule) => rule.confirmationText)
+          .filter((value): value is string => Boolean(value?.trim()))
+          .map((value) => value.trim());
+        const uniqueStatements = [...new Set(configuredStatements)];
+        const requiredStatement =
+          uniqueStatements.length > 0 ? uniqueStatements[0] : fallbackStatement;
+        const confirmed = request.validation?.confirmed === true;
+        const statementMatches = (request.validation?.statement ?? '').trim() === requiredStatement;
+
+        if (uniqueStatements.length > 1 || !confirmed || !statementMatches) {
+          return failure(CertificateError.STATUS_VALIDATION_CONFIRMATION_REQUIRED);
+        }
+
+        const isValueFilled = (value: unknown): boolean => {
+          if (value === null || value === undefined) return false;
+          if (typeof value === 'string') return value.trim() !== '';
+          return true;
+        };
+
+        for (const rule of validationRules) {
+          if (!rule.requiredField) continue;
+          const fieldKey = rule.requiredField as keyof typeof cleanData;
+          const certificateRecord = certificate as unknown as Record<string, unknown>;
+          const candidateValue =
+            fieldKey in cleanData ? cleanData[fieldKey] : certificateRecord[fieldKey as string];
+
+          if (!isValueFilled(candidateValue)) {
+            return failure(CertificateError.STATUS_VALIDATION_REQUIRED_FIELD);
+          }
+        }
+      }
     }
 
     // Atualiza no repositório
@@ -106,18 +168,18 @@ export class UpdateCertificateUseCase {
       updatedFields: Object.keys(cleanData),
     });
 
-    const changeFields = Object.keys(cleanData);
     const previousSnapshot = {
       certificateType: certificate.certificateType,
       recordNumber: certificate.recordNumber,
       partiesName: certificate.partiesName,
       notes: certificate.notes,
       priority: certificate.priority.getValue(),
-      status: certificate.status.getValue(),
+      status: certificate.status.getName(),
       cost: certificate.cost,
       additionalCost: certificate.additionalCost,
       orderNumber: certificate.orderNumber,
-      paymentType: certificate.paymentType,
+      paymentType: certificate.paymentType ?? certificate.paymentTypeId ?? null,
+      paymentTypeId: certificate.paymentTypeId ?? null,
       paymentDate: certificate.paymentDate ? certificate.paymentDate.toISOString() : null,
     };
     const updatedSnapshot = {
@@ -126,33 +188,40 @@ export class UpdateCertificateUseCase {
       partiesName: updateResult.data.partiesName,
       notes: updateResult.data.notes,
       priority: updateResult.data.priority.getValue(),
-      status: updateResult.data.status.getValue(),
+      status: updateResult.data.status.getName(),
       cost: updateResult.data.cost,
       additionalCost: updateResult.data.additionalCost,
       orderNumber: updateResult.data.orderNumber,
-      paymentType: updateResult.data.paymentType,
+      paymentType:
+        updateResult.data.paymentType ??
+        updateResult.data.paymentTypeId ??
+        cleanData.paymentTypeId ??
+        null,
+      paymentTypeId: updateResult.data.paymentTypeId ?? cleanData.paymentTypeId ?? null,
       paymentDate: updateResult.data.paymentDate
         ? updateResult.data.paymentDate.toISOString()
         : null,
     };
 
-    const changes = changeFields.reduce<Record<string, unknown>>((acc, field) => {
-      if (field === 'paymentTypeId') {
-        acc.paymentType = {
-          before: certificate.paymentType ?? certificate.paymentTypeId ?? null,
-          after:
-            updateResult.data.paymentType ??
-            updateResult.data.paymentTypeId ??
-            cleanData.paymentTypeId ??
-            null,
-        };
-        return acc;
-      }
+    const normalizeEmpty = (value: unknown): unknown => {
+      if (value === undefined || value === null || value === '') return null;
+      return value;
+    };
 
-      acc[field] = {
-        before: (previousSnapshot as Record<string, unknown>)[field],
-        after: (updatedSnapshot as Record<string, unknown>)[field],
-      };
+    const changeFields = Object.keys(cleanData);
+
+    const changes = changeFields.reduce<Record<string, unknown>>((acc, field) => {
+      if (field === 'status') {
+        acc[field] = {
+          before: normalizeEmpty(previousSnapshot.status),
+          after: normalizeEmpty(updatedSnapshot.status ?? cleanData.status ?? null),
+        };
+      } else {
+        acc[field] = {
+          before: normalizeEmpty((previousSnapshot as Record<string, unknown>)[field]),
+          after: normalizeEmpty((updatedSnapshot as Record<string, unknown>)[field]),
+        };
+      }
       return acc;
     }, {});
 

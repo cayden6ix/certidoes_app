@@ -12,11 +12,6 @@
 export type UserRole = 'client' | 'admin';
 
 /**
- * Tipos de status de certidão
- */
-export type CertificateStatus = 'pending' | 'in_progress' | 'completed' | 'canceled';
-
-/**
  * Tipos de prioridade de certidão
  */
 export type CertificatePriority = 1 | 2;
@@ -63,7 +58,7 @@ export interface Database {
           party_names: string[] | null;
           observations: string | null;
           priority: CertificatePriority | null;
-          status: CertificateStatus;
+          status_id: string;
           cost: number | null;
           additional_cost: number | null;
           order_number: string | null;
@@ -80,7 +75,7 @@ export interface Database {
           party_names?: string[] | null;
           observations?: string | null;
           priority?: CertificatePriority | null;
-          status?: CertificateStatus;
+          status_id?: string;
           cost?: number | null;
           additional_cost?: number | null;
           order_number?: string | null;
@@ -97,7 +92,7 @@ export interface Database {
           party_names?: string[] | null;
           observations?: string | null;
           priority?: CertificatePriority | null;
-          status?: CertificateStatus;
+          status_id?: string;
           cost?: number | null;
           additional_cost?: number | null;
           order_number?: string | null;
@@ -126,6 +121,13 @@ export interface Database {
             columns: ['payment_type_id'];
             isOneToOne: false;
             referencedRelation: 'payment_type';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'certificates_status_id_fkey';
+            columns: ['status_id'];
+            isOneToOne: false;
+            referencedRelation: 'certificate_status';
             referencedColumns: ['id'];
           },
         ];
@@ -294,12 +296,136 @@ export interface Database {
           },
         ];
       };
+      certificate_status: {
+        Row: {
+          id: string;
+          name: string;
+          display_name: string;
+          description: string | null;
+          color: string;
+          display_order: number;
+          is_active: boolean;
+          can_edit_certificate: boolean;
+          is_final: boolean;
+          created_at: string;
+          updated_at: string;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          display_name: string;
+          description?: string | null;
+          color?: string;
+          display_order?: number;
+          is_active?: boolean;
+          can_edit_certificate?: boolean;
+          is_final?: boolean;
+          created_at?: string;
+          updated_at?: string;
+          created_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          display_name?: string;
+          description?: string | null;
+          color?: string;
+          display_order?: number;
+          is_active?: boolean;
+          can_edit_certificate?: boolean;
+          is_final?: boolean;
+          created_at?: string;
+          updated_at?: string;
+          created_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'certificate_status_created_by_fkey';
+            columns: ['created_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      validations: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      certificate_status_validations: {
+        Row: {
+          id: string;
+          status_id: string;
+          validation_id: string;
+          required_field: string | null;
+          confirmation_text: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          status_id: string;
+          validation_id: string;
+          required_field?: string | null;
+          confirmation_text?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          status_id?: string;
+          validation_id?: string;
+          required_field?: string | null;
+          confirmation_text?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'certificate_status_validations_status_id_fkey';
+            columns: ['status_id'];
+            isOneToOne: false;
+            referencedRelation: 'certificate_status';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'certificate_status_validations_validation_id_fkey';
+            columns: ['validation_id'];
+            isOneToOne: false;
+            referencedRelation: 'validations';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
     Enums: {
       user_role: UserRole;
-      certificate_status: CertificateStatus;
     };
     CompositeTypes: Record<string, never>;
   };

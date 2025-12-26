@@ -16,7 +16,7 @@ export interface CertificateRow {
   notes?: string | null;
   observations?: string | null;
   priority?: 'normal' | 'urgent' | CertificatePriority | null;
-  status?: 'pending' | 'in_progress' | 'completed' | 'canceled';
+  status_id: string;
   cost?: number | null;
   additional_cost?: number | null;
   order_number?: string | null;
@@ -24,6 +24,24 @@ export interface CertificateRow {
   payment_date?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Interface para tipagem da linha de status de certidão
+ */
+export interface CertificateStatusRow {
+  id: string;
+  name: string;
+  display_name: string;
+  description: string | null;
+  color: string;
+  display_order: number;
+  is_active: boolean;
+  can_edit_certificate: boolean;
+  is_final: boolean;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
 }
 
 /**
@@ -38,7 +56,7 @@ export interface CertificateTypeRow {
  * Tabelas possíveis para tipos de certidão
  * O banco pode ter diferentes nomes dependendo da migração
  */
-export const CERTIFICATE_TYPE_TABLES = ['certificate_types', 'certificates_type'] as const;
+export const CERTIFICATE_TYPE_TABLES = ['certificates_type'] as const;
 
 /**
  * Mapeamento de prioridade para valor do banco

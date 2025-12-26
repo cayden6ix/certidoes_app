@@ -3,10 +3,7 @@ import {
   CertificateEntity,
   type CertificateTagData,
 } from '../../../1-domain/entities/certificate.entity';
-import {
-  CertificateStatusValueObject,
-  type CertificateStatusType,
-} from '../../../1-domain/value-objects/certificate-status.value-object';
+import { CertificateStatusValueObject } from '../../../1-domain/value-objects/certificate-status.value-object';
 import {
   CertificatePriorityValueObject,
   type CertificatePriorityType,
@@ -14,11 +11,19 @@ import {
 import type { CertificatePriority } from '../../../../supabase/1-domain/types/database.types';
 import type { CertificateRow } from '../types/certificate-row.types';
 import { PRIORITY_TO_DB } from '../types/certificate-row.types';
+import type { CertificateStatusInfo } from '@shared/types';
 
 /**
  * Status padrão para certificados sem status definido
  */
-const DEFAULT_STATUS: CertificateStatusType = 'pending';
+const DEFAULT_STATUS_INFO: CertificateStatusInfo = {
+  id: '',
+  name: 'pending',
+  displayName: 'Pendente',
+  color: '#f59e0b',
+  canEditCertificate: true,
+  isFinal: false,
+};
 
 /**
  * Mapper responsável por converter dados do banco para entidades de domínio
@@ -33,6 +38,7 @@ export class CertificateMapper {
    * @param certificateTypeName - Nome do tipo de certidão (opcional, resolvido externamente)
    * @param paymentTypeName - Nome do tipo de pagamento (opcional, resolvido externamente)
    * @param tags - Tags associadas à certidão
+   * @param statusInfo - Informações do status (resolvidas externamente)
    * @returns Entidade ou null se falhar
    */
   mapToEntity(
@@ -40,13 +46,14 @@ export class CertificateMapper {
     certificateTypeName?: string,
     paymentTypeName?: string | null,
     tags: CertificateTagData[] = [],
+    statusInfo?: CertificateStatusInfo,
   ): CertificateEntity | null {
     try {
-      const statusValue = row.status ?? DEFAULT_STATUS;
-      const statusResult = CertificateStatusValueObject.create(statusValue);
+      const statusData = statusInfo ?? DEFAULT_STATUS_INFO;
+      const statusResult = CertificateStatusValueObject.fromInfo(statusData);
 
       if (!statusResult.success) {
-        this.logger.error('Status inválido no banco', { status: statusValue, id: row.id });
+        this.logger.error('Status inválido no banco', { statusId: row.status_id, id: row.id });
         return null;
       }
 
@@ -97,12 +104,14 @@ export class CertificateMapper {
    * @param typeNameMap - Mapa de IDs de tipo para nomes
    * @param paymentTypeNameMap - Mapa de IDs de tipo de pagamento para nomes
    * @param tagsMap - Mapa de IDs de certificado para suas tags
+   * @param statusInfoMap - Mapa de IDs de status para suas informações
    */
   mapManyToEntities(
     rows: CertificateRow[],
     typeNameMap: Map<string, string>,
     paymentTypeNameMap: Map<string, string>,
     tagsMap: Map<string, CertificateTagData[]> = new Map(),
+    statusInfoMap: Map<string, CertificateStatusInfo> = new Map(),
   ): CertificateEntity[] {
     return rows
       .map((row) =>
@@ -111,6 +120,7 @@ export class CertificateMapper {
           this.resolveCertificateTypeName(row, typeNameMap),
           this.resolvePaymentTypeName(row, paymentTypeNameMap),
           tagsMap.get(row.id) ?? [],
+          statusInfoMap.get(row.status_id),
         ),
       )
       .filter((entity): entity is CertificateEntity => entity !== null);

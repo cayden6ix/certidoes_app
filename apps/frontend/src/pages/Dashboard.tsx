@@ -1,27 +1,16 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
 import {
+  listCertificateStatuses,
   listCertificates,
   type Certificate,
+  type CertificateStatusConfig,
   type CertificateTagInfo,
   type PaginatedCertificates,
 } from '../lib/api';
-
-/**
- * Mapeia status para cores e labels
- */
-const STATUS_CONFIG: Record<
-  Certificate['status'],
-  { label: string; bgColor: string; textColor: string }
-> = {
-  pending: { label: 'Pendente', bgColor: 'bg-yellow-100', textColor: 'text-yellow-800' },
-  in_progress: { label: 'Em Andamento', bgColor: 'bg-blue-100', textColor: 'text-blue-800' },
-  completed: { label: 'Concluída', bgColor: 'bg-green-100', textColor: 'text-green-800' },
-  canceled: { label: 'Cancelada', bgColor: 'bg-red-100', textColor: 'text-red-800' },
-};
 
 /**
  * Mapeia prioridade para cores e labels
@@ -96,6 +85,30 @@ function TagBadge({ tag }: { tag: CertificateTagInfo }): JSX.Element {
   );
 }
 
+function getContrastColor(hexColor: string): string {
+  const hex = hexColor.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness > 128 ? '#1f2937' : '#ffffff';
+}
+
+function StatusBadge({ status }: { status: Certificate['status'] }): JSX.Element {
+  const bgColor = status.color || '#e5e7eb';
+  return (
+    <span
+      className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
+      style={{
+        backgroundColor: bgColor,
+        color: getContrastColor(bgColor),
+      }}
+    >
+      {status.displayName}
+    </span>
+  );
+}
+
 /**
  * Página de Dashboard
  * Exibe lista de certidões do usuário/admin
@@ -112,6 +125,9 @@ export function DashboardPage(): JSX.Element {
   const [toDate, setToDate] = useState<string>('');
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(20);
+  const [statuses, setStatuses] = useState<CertificateStatusConfig[]>([]);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [loadingStatuses, setLoadingStatuses] = useState(false);
 
   const isAdmin = user?.role === 'admin';
 
@@ -149,13 +165,70 @@ export function DashboardPage(): JSX.Element {
     void fetchCertificates();
   }, [fetchCertificates]);
 
-  // Contadores por status
-  const counts = {
-    total: pagination?.total ?? 0,
-    pending: certificates.filter((c) => c.status === 'pending').length,
-    in_progress: certificates.filter((c) => c.status === 'in_progress').length,
-    completed: certificates.filter((c) => c.status === 'completed').length,
-  };
+  useEffect(() => {
+    if (!token || !isAdmin) return;
+
+    let active = true;
+    const fetchStatuses = async (): Promise<void> => {
+      setLoadingStatuses(true);
+      const response = await listCertificateStatuses(token, { includeInactive: true, limit: 100 });
+
+      if (!active) return;
+
+      if (response.error || !response.data) {
+        setStatusError(response.error ?? 'Não foi possível carregar os status');
+        setStatuses([]);
+      } else {
+        setStatusError(null);
+        setStatuses(response.data.data);
+      }
+
+      setLoadingStatuses(false);
+    };
+
+    void fetchStatuses();
+
+    return () => {
+      active = false;
+    };
+  }, [token, isAdmin]);
+
+  const statusOptions = useMemo(() => {
+    type StatusOption = CertificateStatusConfig & { displayOrder?: number };
+
+    if (isAdmin && statuses.length > 0) {
+      return statuses as StatusOption[];
+    }
+
+    const map = new Map<string, StatusOption>();
+    certificates.forEach((certificate, index) => {
+      const status = certificate.status;
+      map.set(status.id, {
+        ...status,
+        description: null,
+        displayOrder: index,
+        isActive: true,
+        createdAt: '',
+        createdBy: null,
+      });
+    });
+
+    return Array.from(map.values());
+  }, [certificates, isAdmin, statuses]);
+
+  const statusCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    certificates.forEach((certificate) => {
+      map.set(certificate.status.name, (map.get(certificate.status.name) ?? 0) + 1);
+    });
+    return map;
+  }, [certificates]);
+
+  const sortedStatusCards = useMemo(() => {
+    return [...statusOptions].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+  }, [statusOptions]);
+
+  const totalCount = pagination?.total ?? 0;
 
   const totalPages = pagination ? Math.max(1, Math.ceil(pagination.total / pageSize)) : 1;
 
@@ -188,20 +261,20 @@ export function DashboardPage(): JSX.Element {
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-lg bg-white p-6 shadow">
             <h3 className="text-sm font-medium text-gray-500">Total de Certidões</h3>
-            <p className="mt-2 text-3xl font-bold text-gray-900">{counts.total}</p>
+            <p className="mt-2 text-3xl font-bold text-gray-900">{totalCount}</p>
           </div>
-          <div className="rounded-lg bg-white p-6 shadow">
-            <h3 className="text-sm font-medium text-gray-500">Pendentes</h3>
-            <p className="mt-2 text-3xl font-bold text-yellow-600">{counts.pending}</p>
-          </div>
-          <div className="rounded-lg bg-white p-6 shadow">
-            <h3 className="text-sm font-medium text-gray-500">Em Andamento</h3>
-            <p className="mt-2 text-3xl font-bold text-blue-600">{counts.in_progress}</p>
-          </div>
-          <div className="rounded-lg bg-white p-6 shadow">
-            <h3 className="text-sm font-medium text-gray-500">Concluídas</h3>
-            <p className="mt-2 text-3xl font-bold text-green-600">{counts.completed}</p>
-          </div>
+          {sortedStatusCards.slice(0, 3).map((status) => (
+            <div
+              key={status.id}
+              className="rounded-lg bg-white p-6 shadow"
+              style={{ borderTop: `4px solid ${status.color}` }}
+            >
+              <h3 className="text-sm font-medium text-gray-500">{status.displayName}</h3>
+              <p className="mt-2 text-3xl font-bold" style={{ color: status.color || '#111827' }}>
+                {statusCounts.get(status.name) ?? 0}
+              </p>
+            </div>
+          ))}
         </div>
 
         {/* Filtros */}
@@ -266,11 +339,17 @@ export function DashboardPage(): JSX.Element {
               className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
             >
               <option value="">Todos</option>
-              <option value="pending">Pendente</option>
-              <option value="in_progress">Em Andamento</option>
-              <option value="completed">Concluída</option>
-              <option value="canceled">Cancelada</option>
+              {statusOptions.map((status) => (
+                <option key={status.id} value={status.name}>
+                  {status.displayName}
+                </option>
+              ))}
             </select>
+            {statusError && (
+              <p className="mt-1 text-xs text-red-600">
+                {loadingStatuses ? 'Carregando status...' : statusError}
+              </p>
+            )}
           </div>
           <div>
             <label htmlFor="pageSize" className="block text-sm font-medium text-gray-700">
@@ -408,7 +487,7 @@ export function DashboardPage(): JSX.Element {
                         {cert.partiesName}
                       </td>
                       <td className="whitespace-nowrap px-6 py-4">
-                        <Badge config={STATUS_CONFIG[cert.status]} />
+                        <StatusBadge status={cert.status} />
                       </td>
                       <td className="whitespace-nowrap px-6 py-4">
                         <Badge config={PRIORITY_CONFIG[cert.priority]} />

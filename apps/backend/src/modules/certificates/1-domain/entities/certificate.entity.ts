@@ -122,7 +122,7 @@ export class CertificateEntity {
       partiesName: this.partiesName,
       notes: this.notes,
       priority: this.priority.getValue(),
-      status: this.status.getValue(),
+      status: this.status.toDTO(),
       cost: this.cost,
       additionalCost: this.additionalCost,
       orderNumber: this.orderNumber,

@@ -161,7 +161,7 @@ export interface Certificate {
   partiesName: string;
   notes: string | null;
   priority: 'normal' | 'urgent';
-  status: 'pending' | 'in_progress' | 'completed' | 'canceled';
+  status: CertificateStatusInfo;
   cost: number | null;
   additionalCost: number | null;
   orderNumber: string | null;
@@ -204,12 +204,14 @@ export interface UpdateCertificateRequest {
   partiesName?: string;
   notes?: string;
   priority?: 'normal' | 'urgent';
-  status?: 'pending' | 'in_progress' | 'completed' | 'canceled';
+  status?: string;
   cost?: number;
   additionalCost?: number;
   orderNumber?: string;
   paymentDate?: string;
   paymentTypeId?: string | null;
+  validationConfirmed?: boolean;
+  validationStatement?: string;
 }
 
 export interface ListCertificatesParams {
@@ -379,6 +381,45 @@ export interface CertificateTag {
   color: string | null;
   createdBy: string | null;
   createdAt: string;
+}
+
+export interface CertificateStatusInfo {
+  id: string;
+  name: string;
+  displayName: string;
+  color: string;
+  canEditCertificate: boolean;
+  isFinal: boolean;
+}
+
+export interface CertificateStatusConfig extends CertificateStatusInfo {
+  description: string | null;
+  displayOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  createdBy: string | null;
+}
+
+export interface ValidationConfig {
+  id: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CertificateStatusValidationRule {
+  id: string;
+  statusId: string;
+  statusName: string;
+  validationId: string;
+  validationName: string;
+  validationDescription: string | null;
+  requiredField: string | null;
+  confirmationText: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ListAdminParams {
@@ -641,5 +682,221 @@ export async function updateCertificateTags(
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify({ tagIds }),
+  });
+}
+
+// ============ CERTIFICATE STATUS API ============
+
+export interface ListStatusParams {
+  search?: string;
+  includeInactive?: boolean;
+  page?: number;
+  pageSize?: number;
+  limit?: number;
+  offset?: number;
+}
+
+export interface CreateCertificateStatusRequest {
+  name: string;
+  displayName: string;
+  description?: string;
+  color?: string;
+  displayOrder?: number;
+  canEditCertificate?: boolean;
+  isFinal?: boolean;
+}
+
+export type UpdateCertificateStatusRequest = Partial<CreateCertificateStatusRequest> & {
+  isActive?: boolean;
+};
+
+export interface ListValidationsParams {
+  search?: string;
+  includeInactive?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+export interface CreateValidationRequest {
+  name: string;
+  description?: string;
+  isActive?: boolean;
+}
+
+export type UpdateValidationRequest = Partial<CreateValidationRequest>;
+
+export interface ListStatusValidationParams {
+  statusId?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface CreateStatusValidationRequest {
+  statusId: string;
+  validationId: string;
+  requiredField?: string | null;
+  confirmationText?: string | null;
+}
+
+export type UpdateStatusValidationRequest = Partial<CreateStatusValidationRequest>;
+
+export async function listCertificateStatuses(
+  token: string,
+  params?: ListStatusParams,
+): Promise<ApiResponse<PaginatedResult<CertificateStatusConfig>>> {
+  const queryParams = new URLSearchParams();
+  if (params?.search) queryParams.append('search', params.search);
+  if (params?.includeInactive !== undefined)
+    queryParams.append('includeInactive', String(params.includeInactive));
+  if (params?.page) queryParams.append('page', params.page.toString());
+  if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
+  if (params?.limit) queryParams.append('limit', params.limit.toString());
+  if (params?.offset !== undefined) queryParams.append('offset', params.offset.toString());
+
+  const queryString = queryParams.toString();
+  const endpoint = queryString
+    ? `/admin/certificate-statuses?${queryString}`
+    : '/admin/certificate-statuses';
+
+  return apiClient<PaginatedResult<CertificateStatusConfig>>(endpoint, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function createCertificateStatus(
+  token: string,
+  payload: CreateCertificateStatusRequest,
+): Promise<ApiResponse<CertificateStatusConfig>> {
+  return apiClient<CertificateStatusConfig>('/admin/certificate-statuses', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateCertificateStatus(
+  token: string,
+  id: string,
+  payload: UpdateCertificateStatusRequest,
+): Promise<ApiResponse<CertificateStatusConfig>> {
+  return apiClient<CertificateStatusConfig>(`/admin/certificate-statuses/${id}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteCertificateStatus(
+  token: string,
+  id: string,
+): Promise<ApiResponse<void>> {
+  return apiClient<void>(`/admin/certificate-statuses/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// ============ VALIDATIONS API ============
+
+export async function listValidations(
+  token: string,
+  params?: ListValidationsParams,
+): Promise<ApiResponse<PaginatedResult<ValidationConfig>>> {
+  const queryParams = new URLSearchParams();
+  if (params?.search) queryParams.append('search', params.search);
+  if (params?.includeInactive !== undefined)
+    queryParams.append('includeInactive', String(params.includeInactive));
+  if (params?.limit) queryParams.append('limit', params.limit.toString());
+  if (params?.offset !== undefined) queryParams.append('offset', params.offset.toString());
+
+  const queryString = queryParams.toString();
+  const endpoint = queryString ? `/admin/validations?${queryString}` : '/admin/validations';
+
+  return apiClient<PaginatedResult<ValidationConfig>>(endpoint, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function createValidation(
+  token: string,
+  payload: CreateValidationRequest,
+): Promise<ApiResponse<ValidationConfig>> {
+  return apiClient<ValidationConfig>('/admin/validations', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateValidation(
+  token: string,
+  id: string,
+  payload: UpdateValidationRequest,
+): Promise<ApiResponse<ValidationConfig>> {
+  return apiClient<ValidationConfig>(`/admin/validations/${id}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteValidation(token: string, id: string): Promise<ApiResponse<void>> {
+  return apiClient<void>(`/admin/validations/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// ====== CERTIFICATE STATUS VALIDATIONS API ======
+
+export async function listCertificateStatusValidations(
+  token: string,
+  params?: ListStatusValidationParams,
+): Promise<ApiResponse<PaginatedResult<CertificateStatusValidationRule>>> {
+  const queryParams = new URLSearchParams();
+  if (params?.statusId) queryParams.append('statusId', params.statusId);
+  if (params?.limit) queryParams.append('limit', params.limit.toString());
+  if (params?.offset !== undefined) queryParams.append('offset', params.offset.toString());
+
+  const queryString = queryParams.toString();
+  const endpoint = queryString
+    ? `/admin/certificate-status-validations?${queryString}`
+    : '/admin/certificate-status-validations';
+
+  return apiClient<PaginatedResult<CertificateStatusValidationRule>>(endpoint, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function createCertificateStatusValidation(
+  token: string,
+  payload: CreateStatusValidationRequest,
+): Promise<ApiResponse<CertificateStatusValidationRule>> {
+  return apiClient<CertificateStatusValidationRule>('/admin/certificate-status-validations', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateCertificateStatusValidation(
+  token: string,
+  id: string,
+  payload: UpdateStatusValidationRequest,
+): Promise<ApiResponse<CertificateStatusValidationRule>> {
+  return apiClient<CertificateStatusValidationRule>(`/admin/certificate-status-validations/${id}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteCertificateStatusValidation(
+  token: string,
+  id: string,
+): Promise<ApiResponse<void>> {
+  return apiClient<void>(`/admin/certificate-status-validations/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
   });
 }

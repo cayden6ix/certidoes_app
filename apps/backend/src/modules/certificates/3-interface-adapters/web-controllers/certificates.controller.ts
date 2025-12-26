@@ -248,19 +248,28 @@ export class CertificatesController {
       updateFields: Object.keys(dto),
     });
 
-    const request = new UpdateCertificateRequestDto(id, user.userId, user.role, {
-      certificateType: dto.certificateType,
-      recordNumber: dto.recordNumber,
-      partiesName: dto.partiesName,
-      notes: dto.notes,
-      priority: dto.priority,
-      status: dto.status,
-      cost: dto.cost,
-      additionalCost: dto.additionalCost,
-      orderNumber: dto.orderNumber,
-      paymentDate: dto.paymentDate ? new Date(dto.paymentDate) : undefined,
-      paymentTypeId: dto.paymentTypeId === undefined ? undefined : (dto.paymentTypeId ?? null),
-    });
+    const request = new UpdateCertificateRequestDto(
+      id,
+      user.userId,
+      user.role,
+      {
+        certificateType: dto.certificateType,
+        recordNumber: dto.recordNumber,
+        partiesName: dto.partiesName,
+        notes: dto.notes,
+        priority: dto.priority,
+        status: dto.status,
+        cost: dto.cost,
+        additionalCost: dto.additionalCost,
+        orderNumber: dto.orderNumber,
+        paymentDate: dto.paymentDate ? new Date(dto.paymentDate) : undefined,
+        paymentTypeId: dto.paymentTypeId === undefined ? undefined : (dto.paymentTypeId ?? null),
+      },
+      {
+        confirmed: dto.validationConfirmed,
+        statement: dto.validationStatement,
+      },
+    );
 
     const result = await this.updateCertificateUseCase.execute(request);
     const certificate = CertificateResultToHttpHelper.handle(result);

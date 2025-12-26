@@ -42,6 +42,8 @@ export class CertificateResultToHttpHelper {
       case CertificateError.INVALID_PARTIES_NAME:
       case CertificateError.INVALID_PRIORITY:
       case CertificateError.INVALID_STATUS:
+      case CertificateError.STATUS_VALIDATION_CONFIRMATION_REQUIRED:
+      case CertificateError.STATUS_VALIDATION_REQUIRED_FIELD:
       case CertificateError.CERTIFICATE_ALREADY_COMPLETED:
       case CertificateError.CERTIFICATE_ALREADY_CANCELED:
         throw new BadRequestException(result.error);

@@ -81,7 +81,7 @@ export class CreateCertificateUseCase {
           partiesName: result.data.partiesName,
           notes: result.data.notes,
           priority: result.data.priority.getValue(),
-          status: result.data.status.getValue(),
+          status: result.data.status.getName(),
         },
       },
     });

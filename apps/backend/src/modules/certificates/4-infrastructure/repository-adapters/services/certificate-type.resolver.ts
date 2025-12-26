@@ -3,10 +3,7 @@ import type { Result } from '../../../../../shared/1-domain/types/result.type';
 import { failure, success } from '../../../../../shared/1-domain/types/result.type';
 import type { LoggerContract } from '../../../../../shared/1-domain/contracts/logger.contract';
 import { CertificateError } from '../../../1-domain/errors/certificate-errors.enum';
-import {
-  CERTIFICATE_TYPE_TABLES,
-  type CertificateTypeRow,
-} from '../types/certificate-row.types';
+import { CERTIFICATE_TYPE_TABLES, type CertificateTypeRow } from '../types/certificate-row.types';
 
 /**
  * Serviço responsável por resolver IDs de tipos de certidão
@@ -78,10 +75,7 @@ export class CertificateTypeResolver {
     }
 
     for (const table of CERTIFICATE_TYPE_TABLES) {
-      const { data, error } = await this.supabaseClient
-        .from(table)
-        .select('id,name')
-        .in('id', ids);
+      const { data, error } = await this.supabaseClient.from(table).select('id,name').in('id', ids);
 
       if (error) {
         if (this.isMissingRelationError(error.message)) {
@@ -155,11 +149,13 @@ export class CertificateTypeResolver {
       .maybeSingle<CertificateTypeRow>();
 
     if (error) {
-      this.logger.error('Erro ao buscar tipo de certidão', {
-        error: error.message,
-        certificateType: typeName,
-        table,
-      });
+      if (!this.isMissingRelationError(error.message)) {
+        this.logger.error('Erro ao buscar tipo de certidão', {
+          error: error.message,
+          certificateType: typeName,
+          table,
+        });
+      }
       return { found: false, id: '', error: error.message };
     }
 
@@ -184,11 +180,13 @@ export class CertificateTypeResolver {
       .single<CertificateTypeRow>();
 
     if (error) {
-      this.logger.error('Erro ao criar tipo de certidão', {
-        error: error.message,
-        certificateType: typeName,
-        table,
-      });
+      if (!this.isMissingRelationError(error.message)) {
+        this.logger.error('Erro ao criar tipo de certidão', {
+          error: error.message,
+          certificateType: typeName,
+          table,
+        });
+      }
       return { created: false, id: '', error: error.message };
     }
 

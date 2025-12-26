@@ -7,24 +7,18 @@ import {
   getCertificate,
   listCertificateEvents,
   listCertificateTags,
+  listCertificateStatuses,
+  listCertificateStatusValidations,
   listPaymentTypes,
   updateCertificate,
   updateCertificateTags,
   type Certificate,
   type CertificateEvent,
+  type CertificateStatusConfig,
+  type CertificateStatusValidationRule,
   type CertificateTag,
   type PaymentType,
 } from '../lib/api';
-
-const STATUS_CONFIG: Record<
-  Certificate['status'],
-  { label: string; bgColor: string; textColor: string }
-> = {
-  pending: { label: 'Pendente', bgColor: 'bg-yellow-100', textColor: 'text-yellow-800' },
-  in_progress: { label: 'Em Andamento', bgColor: 'bg-blue-100', textColor: 'text-blue-800' },
-  completed: { label: 'Concluída', bgColor: 'bg-green-100', textColor: 'text-green-800' },
-  canceled: { label: 'Cancelada', bgColor: 'bg-red-100', textColor: 'text-red-800' },
-};
 
 const PRIORITY_CONFIG: Record<
   Certificate['priority'],
@@ -33,6 +27,9 @@ const PRIORITY_CONFIG: Record<
   normal: { label: 'Normal', bgColor: 'bg-gray-100', textColor: 'text-gray-800' },
   urgent: { label: 'Urgente', bgColor: 'bg-orange-100', textColor: 'text-orange-800' },
 };
+
+const STATUS_VALIDATION_STATEMENT =
+  'Eu verifiquei e confirmei as mudanças que estou prestes a fazer';
 
 function Badge({
   config,
@@ -192,7 +189,12 @@ function formatTagTransitions(before: unknown, after: unknown): string[] {
   return lines;
 }
 
-function formatChanges(changes: Record<string, unknown> | null): string[] {
+function formatChanges(
+  changes: Record<string, unknown> | null,
+  formatStatus?: (name: string) => string,
+  formatPaymentType?: (idOrName: string | null | undefined) => string,
+  formatOrderNumber?: (value: string | null | undefined) => string,
+): string[] {
   if (!changes) return [];
   let entries = Object.entries(changes);
   if (
@@ -228,14 +230,82 @@ function formatChanges(changes: Record<string, unknown> | null): string[] {
         continue;
       }
 
+      if (field === 'status' && typeof before === 'string' && typeof after === 'string') {
+        const beforeLabel = formatStatus ? formatStatus(before) : formatValue(before);
+        const afterLabel = formatStatus ? formatStatus(after) : formatValue(after);
+        result.push(`${formatFieldLabel(field)}: ${beforeLabel} → ${afterLabel}`);
+        continue;
+      }
+
+      if (field === 'paymentTypeId' || field === 'paymentType') {
+        const beforeLabel = formatPaymentType
+          ? formatPaymentType(typeof before === 'string' ? before : null)
+          : formatValue(before);
+        const afterLabel = formatPaymentType
+          ? formatPaymentType(typeof after === 'string' ? after : null)
+          : formatValue(after);
+        result.push(`${formatFieldLabel('paymentType')}: ${beforeLabel} → ${afterLabel}`);
+        continue;
+      }
+
+      if (field === 'orderNumber') {
+        const beforeLabel = formatOrderNumber
+          ? formatOrderNumber(typeof before === 'string' ? before : null)
+          : formatValue(before);
+        const afterLabel = formatOrderNumber
+          ? formatOrderNumber(typeof after === 'string' ? after : null)
+          : formatValue(after);
+        result.push(`${formatFieldLabel('orderNumber')}: ${beforeLabel} → ${afterLabel}`);
+        continue;
+      }
+
       result.push(`${formatFieldLabel(field)}: ${formatValue(before)} → ${formatValue(after)}`);
       continue;
     }
-    if (value === undefined) continue;
+    if (value === undefined || value === null || value === '') continue;
     result.push(`${formatFieldLabel(field)}: ${formatValue(value)}`);
   }
 
   return result;
+}
+
+function buildStatusFormatter(
+  statuses: CertificateStatusConfig[],
+  currentStatus?: Certificate['status'],
+): (name: string) => string {
+  const lookup = new Map<string, string>();
+  statuses.forEach((status) => lookup.set(status.name, status.displayName));
+  if (currentStatus) {
+    lookup.set(currentStatus.name, currentStatus.displayName);
+  }
+
+  return (name: string): string => lookup.get(name) ?? formatValue(name);
+}
+
+function buildPaymentTypeFormatter(
+  paymentTypes: PaymentType[],
+  currentName?: string | null,
+  currentId?: string | null,
+): (idOrName: string | null | undefined) => string {
+  const map = new Map<string, string>();
+  paymentTypes.forEach((pt) => map.set(pt.id, pt.name));
+  if (currentId && currentName) {
+    map.set(currentId, currentName);
+  }
+
+  return (value: string | null | undefined): string => {
+    if (!value) return '-';
+    return map.get(value) ?? value;
+  };
+}
+
+function buildOrderNumberFormatter(): (value: string | null | undefined) => string {
+  return (value: string | null | undefined): string => {
+    if (!value) return 'Sem número';
+    const trimmed = value.trim();
+    if (!trimmed) return 'Sem número';
+    return trimmed;
+  };
 }
 
 export function CertificateDetailPage(): JSX.Element {
@@ -259,6 +329,14 @@ export function CertificateDetailPage(): JSX.Element {
   const [paymentTypes, setPaymentTypes] = useState<PaymentType[]>([]);
   const [loadingPaymentTypes, setLoadingPaymentTypes] = useState(false);
   const [paymentTypesError, setPaymentTypesError] = useState<string | null>(null);
+  const [statuses, setStatuses] = useState<CertificateStatusConfig[]>([]);
+  const [loadingStatuses, setLoadingStatuses] = useState(false);
+  const [statusesError, setStatusesError] = useState<string | null>(null);
+  const [statusValidations, setStatusValidations] = useState<CertificateStatusValidationRule[]>([]);
+  const [loadingStatusValidations, setLoadingStatusValidations] = useState(false);
+  const [statusValidationsError, setStatusValidationsError] = useState<string | null>(null);
+  const [validationConfirmed, setValidationConfirmed] = useState(false);
+  const [validationStatement, setValidationStatement] = useState('');
   const [availableTags, setAvailableTags] = useState<CertificateTag[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [loadingTags, setLoadingTags] = useState(false);
@@ -292,7 +370,7 @@ export function CertificateDetailPage(): JSX.Element {
       setCertificate(certificateResult.data);
       if (certificateResult.data) {
         setAdminForm({
-          status: certificateResult.data.status,
+          status: certificateResult.data.status.name,
           cost: certificateResult.data.cost !== null ? certificateResult.data.cost.toString() : '',
           additionalCost:
             certificateResult.data.additionalCost !== null
@@ -319,7 +397,7 @@ export function CertificateDetailPage(): JSX.Element {
   }, [token, id]);
 
   useEffect(() => {
-    if (!token || !isAdmin) return;
+    if (!token) return;
 
     let active = true;
     const fetchPaymentTypes = async (): Promise<void> => {
@@ -348,6 +426,74 @@ export function CertificateDetailPage(): JSX.Element {
       active = false;
     };
   }, [token, isAdmin]);
+
+  // Busca status disponíveis para admin
+  useEffect(() => {
+    if (!token) return;
+
+    let active = true;
+    const fetchStatuses = async (): Promise<void> => {
+      setLoadingStatuses(true);
+      const response = await listCertificateStatuses(token, {
+        includeInactive: true,
+        limit: 100,
+      });
+
+      if (!active) return;
+
+      if (response.error || !response.data) {
+        setStatusesError(response.error ?? 'Não foi possível carregar status.');
+        setStatuses([]);
+      } else {
+        setStatusesError(null);
+        setStatuses(response.data.data.filter((status) => status.isActive));
+      }
+
+      setLoadingStatuses(false);
+    };
+
+    void fetchStatuses();
+
+    return () => {
+      active = false;
+    };
+  }, [token]);
+
+  useEffect(() => {
+    if (!token || !isAdmin) return;
+
+    let active = true;
+    const fetchStatusValidations = async (): Promise<void> => {
+      setLoadingStatusValidations(true);
+      const response = await listCertificateStatusValidations(token, { limit: 200 });
+
+      if (!active) return;
+
+      if (response.error || !response.data) {
+        setStatusValidationsError(
+          response.error ?? 'Não foi possível carregar validações de status.',
+        );
+        setStatusValidations([]);
+      } else {
+        setStatusValidationsError(null);
+        setStatusValidations(response.data.data);
+      }
+
+      setLoadingStatusValidations(false);
+    };
+
+    void fetchStatusValidations();
+
+    return () => {
+      active = false;
+    };
+  }, [token, isAdmin]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    setValidationConfirmed(false);
+    setValidationStatement('');
+  }, [adminForm.status, certificate?.status.name, isAdmin]);
 
   // Busca tags disponíveis para admin
   useEffect(() => {
@@ -390,6 +536,107 @@ export function CertificateDetailPage(): JSX.Element {
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
   }, [events]);
+
+  const certificateStatusName = certificate?.status.name ?? '';
+  const selectableStatuses = useMemo(() => {
+    if (statuses.length > 0) {
+      return statuses;
+    }
+
+    if (certificate) {
+      return [
+        {
+          ...certificate.status,
+          description: null,
+          displayOrder: 0,
+          isActive: true,
+          createdAt: '',
+          createdBy: null,
+        },
+      ];
+    }
+
+    return [];
+  }, [certificate, statuses]);
+
+  const statusValidationRules = useMemo(() => {
+    if (!isAdmin) return [];
+    const targetStatus = adminForm.status || certificateStatusName;
+    return statusValidations.filter((rule) => rule.statusName === targetStatus);
+  }, [adminForm.status, certificateStatusName, isAdmin, statusValidations]);
+
+  const requiredFieldLabels = useMemo(
+    () => ({
+      orderNumber: 'Nº do pedido',
+      paymentDate: 'Data de pagamento',
+      paymentTypeId: 'Tipo de pagamento',
+      cost: 'Custo',
+      additionalCost: 'Custo adicional',
+    }),
+    [],
+  );
+
+  const statusValidationStatement = useMemo(() => {
+    const statements = statusValidationRules
+      .map((rule) => rule.confirmationText)
+      .filter((value): value is string => Boolean(value?.trim()))
+      .map((value) => value.trim());
+    const uniqueStatements = [...new Set(statements)];
+
+    return {
+      statement: uniqueStatements[0] ?? STATUS_VALIDATION_STATEMENT,
+      hasConflict: uniqueStatements.length > 1,
+    };
+  }, [statusValidationRules]);
+
+  const missingRequiredFields = useMemo(() => {
+    if (statusValidationRules.length === 0) return [];
+
+    const isMissing = (value: string): boolean => value.trim() === '';
+    const getFieldValue = (field: string): string => {
+      switch (field) {
+        case 'orderNumber':
+          return adminForm.orderNumber;
+        case 'paymentDate':
+          return adminForm.paymentDate;
+        case 'paymentTypeId':
+          return adminForm.paymentTypeId;
+        case 'cost':
+          return adminForm.cost;
+        case 'additionalCost':
+          return adminForm.additionalCost;
+        default:
+          return '';
+      }
+    };
+
+    const fields = statusValidationRules
+      .filter((rule) => rule.requiredField)
+      .map((rule) => rule.requiredField as string);
+
+    return [...new Set(fields)].filter((field) => isMissing(getFieldValue(field)));
+  }, [
+    adminForm.additionalCost,
+    adminForm.cost,
+    adminForm.orderNumber,
+    adminForm.paymentDate,
+    adminForm.paymentTypeId,
+    statusValidationRules,
+  ]);
+
+  const statusChangeRequiresValidation =
+    isAdmin &&
+    adminForm.status !== '' &&
+    adminForm.status !== certificateStatusName &&
+    statusValidationRules.length > 0;
+  const validationStatementMatches =
+    validationStatement.trim() === statusValidationStatement.statement;
+  const isValidationReady =
+    !statusChangeRequiresValidation ||
+    (validationConfirmed &&
+      validationStatementMatches &&
+      missingRequiredFields.length === 0 &&
+      !statusValidationStatement.hasConflict);
 
   if (!token) {
     return (
@@ -476,7 +723,15 @@ export function CertificateDetailPage(): JSX.Element {
                     Status
                   </p>
                   <div className="mt-1">
-                    <Badge config={STATUS_CONFIG[certificate.status]} />
+                    <span
+                      className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                      style={{
+                        backgroundColor: certificate.status.color,
+                        color: getContrastColor(certificate.status.color),
+                      }}
+                    >
+                      {certificate.status.displayName}
+                    </span>
                   </div>
                 </div>
                 <div>
@@ -563,8 +818,8 @@ export function CertificateDetailPage(): JSX.Element {
 
                     const payload = {
                       status:
-                        adminForm.status && adminForm.status !== certificate.status
-                          ? (adminForm.status as Certificate['status'])
+                        adminForm.status && adminForm.status !== certificate.status.name
+                          ? adminForm.status
                           : undefined,
                       cost: adminForm.cost !== '' ? parseFloat(adminForm.cost) : undefined,
                       additionalCost:
@@ -577,6 +832,12 @@ export function CertificateDetailPage(): JSX.Element {
                           : undefined,
                       paymentDate: adminForm.paymentDate !== '' ? adminForm.paymentDate : undefined,
                       paymentTypeId: adminForm.paymentTypeId,
+                      validationConfirmed: statusChangeRequiresValidation
+                        ? validationConfirmed
+                        : undefined,
+                      validationStatement: statusChangeRequiresValidation
+                        ? validationStatement
+                        : undefined,
                     };
 
                     const response = await updateCertificate(token, certificate.id, payload);
@@ -592,7 +853,7 @@ export function CertificateDetailPage(): JSX.Element {
                       setCertificate(updatedData);
                       setAdminForm((prev) => ({
                         ...prev,
-                        status: updatedData.status,
+                        status: updatedData.status.name,
                         cost: updatedData.cost !== null ? updatedData.cost.toString() : '',
                         additionalCost:
                           updatedData.additionalCost !== null
@@ -630,11 +891,16 @@ export function CertificateDetailPage(): JSX.Element {
                       className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
                       disabled={isSaving}
                     >
-                      <option value="pending">Pendente</option>
-                      <option value="in_progress">Em Andamento</option>
-                      <option value="completed">Concluída</option>
-                      <option value="canceled">Cancelada</option>
+                      <option value="">
+                        {loadingStatuses ? 'Carregando status...' : 'Selecione um status'}
+                      </option>
+                      {selectableStatuses.map((status) => (
+                        <option key={status.id} value={status.name}>
+                          {status.displayName}
+                        </option>
+                      ))}
                     </select>
+                    {statusesError && <p className="mt-1 text-xs text-red-600">{statusesError}</p>}
                   </div>
                   <div>
                     <label
@@ -753,6 +1019,79 @@ export function CertificateDetailPage(): JSX.Element {
                       <p className="mt-1 text-xs text-red-600">{paymentTypesError}</p>
                     )}
                   </div>
+                  {statusChangeRequiresValidation && (
+                    <div className="sm:col-span-2">
+                      <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
+                        <p className="text-sm font-semibold text-amber-800">
+                          Confirmação obrigatória para troca de status
+                        </p>
+                        <p className="mt-1 text-xs text-amber-700">
+                          Este status exige validação adicional antes de salvar.
+                        </p>
+                        {loadingStatusValidations && (
+                          <p className="mt-2 text-xs text-gray-500">Carregando validações...</p>
+                        )}
+                        {statusValidationsError && (
+                          <p className="mt-2 text-xs text-red-600">{statusValidationsError}</p>
+                        )}
+                        {statusValidationRules.length > 0 && (
+                          <ul className="mt-2 space-y-1 text-xs text-amber-900">
+                            {statusValidationRules.map((rule) => (
+                              <li key={rule.id}>
+                                • {rule.validationName}
+                                {rule.validationDescription
+                                  ? `: ${rule.validationDescription}`
+                                  : ''}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {statusValidationStatement.hasConflict && (
+                          <p className="mt-2 text-xs text-red-600">
+                            Existem frases de confirmação diferentes configuradas para este status.
+                          </p>
+                        )}
+                        {missingRequiredFields.length > 0 && (
+                          <div className="mt-3 text-xs text-red-600">
+                            Campos obrigatórios pendentes:{' '}
+                            {missingRequiredFields
+                              .map(
+                                (field) =>
+                                  requiredFieldLabels[field as keyof typeof requiredFieldLabels] ??
+                                  field,
+                              )
+                              .join(', ')}
+                          </div>
+                        )}
+                        <label className="mt-3 flex items-center gap-2 text-xs font-medium text-amber-900">
+                          <input
+                            type="checkbox"
+                            checked={validationConfirmed}
+                            onChange={(event) => setValidationConfirmed(event.target.checked)}
+                            className="h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                          />
+                          Estou ciente da mudança de status
+                        </label>
+                        <div className="mt-2">
+                          <label className="block text-xs font-medium text-amber-900">
+                            Digite a frase abaixo para confirmar
+                          </label>
+                          <input
+                            type="text"
+                            value={validationStatement}
+                            onChange={(event) => setValidationStatement(event.target.value)}
+                            placeholder={statusValidationStatement.statement}
+                            className="mt-1 w-full rounded-md border border-amber-300 px-3 py-2 text-xs focus:border-amber-500 focus:outline-none focus:ring-amber-500"
+                          />
+                          {!validationStatementMatches && validationStatement.trim() !== '' && (
+                            <p className="mt-1 text-xs text-red-600">
+                              A frase precisa ser digitada exatamente como indicada.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex items-end justify-between sm:col-span-2">
                     {saveError ? (
                       <p className="text-sm text-red-600">{saveError}</p>
@@ -764,7 +1103,7 @@ export function CertificateDetailPage(): JSX.Element {
                     <button
                       type="submit"
                       className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
-                      disabled={isSaving}
+                      disabled={isSaving || !isValidationReady}
                     >
                       {isSaving ? 'Salvando...' : 'Salvar alterações'}
                     </button>
@@ -892,7 +1231,15 @@ export function CertificateDetailPage(): JSX.Element {
                       Status
                     </p>
                     <div className="mt-1">
-                      <Badge config={STATUS_CONFIG[certificate.status]} />
+                      <span
+                        className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                        style={{
+                          backgroundColor: certificate.status.color,
+                          color: getContrastColor(certificate.status.color),
+                        }}
+                      >
+                        {certificate.status.displayName}
+                      </span>
                     </div>
                   </div>
                   <div>
@@ -949,7 +1296,43 @@ export function CertificateDetailPage(): JSX.Element {
             ) : (
               <div className="mt-4 space-y-4">
                 {sortedEvents.map((event) => {
-                  const changeLines = formatChanges(event.changes);
+                  const statusFormatter = buildStatusFormatter(
+                    selectableStatuses,
+                    certificate.status,
+                  );
+                  const paymentTypeFormatter = buildPaymentTypeFormatter(
+                    paymentTypes,
+                    certificate.paymentType,
+                    certificate.paymentTypeId ?? null,
+                  );
+                  const orderNumberFormatter = buildOrderNumberFormatter();
+                  let changeLines = formatChanges(
+                    event.changes,
+                    statusFormatter,
+                    paymentTypeFormatter,
+                    orderNumberFormatter,
+                  );
+
+                  // Fallback para eventos de status sem linhas (garante mostrar antes/depois)
+                  if (
+                    changeLines.length === 0 &&
+                    event.eventType === 'status_changed' &&
+                    event.changes &&
+                    'status' in event.changes
+                  ) {
+                    const statusChange = event.changes.status as
+                      | { before?: string; after?: string }
+                      | undefined;
+                    if (statusChange) {
+                      const before = statusChange.before ?? '';
+                      const after = statusChange.after ?? '';
+                      if (before || after) {
+                        changeLines = [
+                          `STATUS: ${statusFormatter(String(before))} → ${statusFormatter(String(after))}`,
+                        ];
+                      }
+                    }
+                  }
                   const actorId = event.actorUserId ? event.actorUserId.slice(0, 8) : '';
                   return (
                     <div key={event.id} className="rounded-md border border-gray-200 p-4">

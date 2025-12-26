@@ -225,6 +225,44 @@ CREATE POLICY "Admins podem ver todas as certidões"
         )
     );
 
+-- =====================================================
+-- 8. TABELA VALIDATIONS E VÍNCULO COM STATUS
+-- =====================================================
+
+CREATE TABLE validations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    description TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_validations_name ON validations(name);
+
+CREATE TABLE certificate_status_validations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    status_id UUID NOT NULL REFERENCES certificate_status(id) ON DELETE CASCADE,
+    validation_id UUID NOT NULL REFERENCES validations(id) ON DELETE CASCADE,
+    required_field TEXT,
+    confirmation_text TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_status_validations_unique
+  ON certificate_status_validations(status_id, validation_id, required_field);
+
+CREATE TRIGGER update_validations_updated_at
+    BEFORE UPDATE ON validations
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_certificate_status_validations_updated_at
+    BEFORE UPDATE ON certificate_status_validations
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
 -- Admins podem criar certidões
 CREATE POLICY "Admins podem criar certidões"
     ON certificates

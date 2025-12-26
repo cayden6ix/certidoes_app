@@ -23,7 +23,7 @@ export interface UpdateCertificateData {
   partiesName?: string;
   notes?: string;
   priority?: 'normal' | 'urgent';
-  status?: 'pending' | 'in_progress' | 'completed' | 'canceled';
+  status?: string;
   cost?: number;
   additionalCost?: number;
   orderNumber?: string;

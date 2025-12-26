@@ -9,6 +9,8 @@ export enum CertificateError {
   INVALID_PARTIES_NAME = 'Nome das partes é obrigatório',
   INVALID_PRIORITY = 'Prioridade inválida',
   INVALID_STATUS = 'Status inválido',
+  STATUS_VALIDATION_CONFIRMATION_REQUIRED = 'Confirmação de validação obrigatória',
+  STATUS_VALIDATION_REQUIRED_FIELD = 'Campo obrigatório para mudança de status não preenchido',
 
   // Erros de negócio
   CERTIFICATE_NOT_FOUND = 'Certidão não encontrada',
