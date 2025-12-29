@@ -685,3 +685,57 @@ export const certificateTagProviders: Provider[] = [
   unassignTagUseCaseProvider,
   updateCertificateTagsUseCaseProvider,
 ];
+
+// ============================================================
+// REPORTS
+// ============================================================
+
+import { REPORT_REPOSITORY } from '../../1-domain/contracts/report.repository.contract';
+import { SupabaseReportRepository } from '../repository-adapters/supabase-report.repository';
+import {
+  GetReportMetricsUseCase,
+  GetReportCertificatesUseCase,
+} from '../../2-application/use-cases/reports';
+import { GET_REPORT_METRICS_USECASE, GET_REPORT_CERTIFICATES_USECASE } from './admin.tokens';
+
+/**
+ * Provider do repositório de relatórios
+ */
+export const reportRepositoryProvider: Provider = {
+  provide: REPORT_REPOSITORY,
+  useFactory: (supabase: TypedSupabaseClient, logger: LoggerContract) => {
+    return new SupabaseReportRepository(supabase, logger);
+  },
+  inject: [SUPABASE_CLIENT, LOGGER_CONTRACT],
+};
+
+/**
+ * Provider do use case de métricas do relatório
+ */
+export const getReportMetricsUseCaseProvider: Provider = {
+  provide: GET_REPORT_METRICS_USECASE,
+  useFactory: (repository: SupabaseReportRepository, logger: LoggerContract) => {
+    return new GetReportMetricsUseCase(repository, logger);
+  },
+  inject: [REPORT_REPOSITORY, LOGGER_CONTRACT],
+};
+
+/**
+ * Provider do use case de listagem de certidões do relatório
+ */
+export const getReportCertificatesUseCaseProvider: Provider = {
+  provide: GET_REPORT_CERTIFICATES_USECASE,
+  useFactory: (repository: SupabaseReportRepository, logger: LoggerContract) => {
+    return new GetReportCertificatesUseCase(repository, logger);
+  },
+  inject: [REPORT_REPOSITORY, LOGGER_CONTRACT],
+};
+
+/**
+ * Todos os providers do módulo admin para relatórios
+ */
+export const reportProviders: Provider[] = [
+  reportRepositoryProvider,
+  getReportMetricsUseCaseProvider,
+  getReportCertificatesUseCaseProvider,
+];

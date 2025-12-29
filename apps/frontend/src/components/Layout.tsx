@@ -21,7 +21,10 @@ export function Layout({ children }: LayoutProps): JSX.Element {
 
   // Adiciona itens de admin se o usuário for admin
   if (user?.role === 'admin') {
-    navItems.unshift({ path: '/admin/dashboard', label: 'Admin' });
+    navItems.unshift(
+      { path: '/admin/dashboard', label: 'Admin' },
+      { path: '/admin/reports', label: 'Relatórios' },
+    );
   }
 
   const isActive = (path: string): boolean => location.pathname === path;

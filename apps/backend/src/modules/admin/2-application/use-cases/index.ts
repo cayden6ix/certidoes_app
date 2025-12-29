@@ -8,3 +8,4 @@ export * from './certificate-types';
 export * from './certificate-status';
 export * from './certificate-status-validations';
 export * from './certificate-tags';
+export * from './reports';

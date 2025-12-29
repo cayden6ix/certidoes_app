@@ -11,6 +11,7 @@ import { CertificateTagsController } from './3-interface-adapters/web-controller
 import { CertificateStatusController } from './3-interface-adapters/web-controllers/certificate-status.controller';
 import { CertificateStatusValidationsController } from './3-interface-adapters/web-controllers/certificate-status-validations.controller';
 import { ValidationsController } from './3-interface-adapters/web-controllers/validations.controller';
+import { ReportsController } from './3-interface-adapters/web-controllers/reports.controller';
 
 // Providers refatorados (Clean Architecture)
 import {
@@ -21,7 +22,9 @@ import {
   certificateStatusProviders,
   certificateStatusValidationProviders,
   certificateTagProviders,
+  reportProviders,
 } from './4-infrastructure/di/admin.providers';
+import { CERTIFICATE_TAG_REPOSITORY } from './1-domain/contracts/certificate-tag.repository.contract';
 
 /**
  * Módulo administrativo
@@ -46,6 +49,7 @@ import {
     CertificateStatusController,
     ValidationsController,
     CertificateStatusValidationsController,
+    ReportsController,
   ],
   providers: [
     ...adminUserProviders,
@@ -55,6 +59,8 @@ import {
     ...certificateStatusProviders,
     ...certificateStatusValidationProviders,
     ...certificateTagProviders,
+    ...reportProviders,
   ],
+  exports: [CERTIFICATE_TAG_REPOSITORY],
 })
 export class AdminModule {}

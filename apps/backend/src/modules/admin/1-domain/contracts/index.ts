@@ -5,3 +5,4 @@ export * from './certificate-type.repository.contract';
 export * from './certificate-status.repository.contract';
 export * from './certificate-status-validation.repository.contract';
 export * from './certificate-tag.repository.contract';
+export * from './report.repository.contract';

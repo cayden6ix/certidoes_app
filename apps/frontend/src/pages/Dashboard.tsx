@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { formatCentsToBRL } from '@certidoes/shared';
 
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
+import { useCertificateSelection } from '../contexts/CertificateSelectionContext';
 import {
   listCertificateStatuses,
   listCertificates,
@@ -113,11 +114,12 @@ function StatusBadge({ status }: { status: Certificate['status'] }): JSX.Element
 }
 
 /**
- * Página de Dashboard
- * Exibe lista de certidões do usuário/admin
+ * Conteudo interno do Dashboard
+ * Separado para usar o contexto de selecao
  */
-export function DashboardPage(): JSX.Element {
+function DashboardContent(): JSX.Element {
   const { token, user } = useAuth();
+  const navigate = useNavigate();
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [pagination, setPagination] = useState<Omit<PaginatedCertificates, 'data'> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -133,6 +135,10 @@ export function DashboardPage(): JSX.Element {
   const [loadingStatuses, setLoadingStatuses] = useState(false);
 
   const isAdmin = user?.role === 'admin';
+
+  // Usa o contexto de selecao
+  const { isSelected, toggleSelection, selectAll, clearSelection, selectionCount } =
+    useCertificateSelection();
 
   const fetchCertificates = useCallback(async (): Promise<void> => {
     if (!token) return;
@@ -259,6 +265,31 @@ export function DashboardPage(): JSX.Element {
             </Link>
           )}
         </div>
+
+        {/* Barra de selecao - apenas para admin */}
+        {isAdmin && selectionCount > 0 && (
+          <div className="flex items-center justify-between rounded-lg bg-primary-50 px-4 py-3">
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium text-primary-700">
+                {selectionCount} certidão(ões) selecionada(s)
+              </span>
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="text-sm text-primary-600 hover:text-primary-500 hover:underline"
+              >
+                Limpar seleção
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/bulk-update')}
+              className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500"
+            >
+              Editar em massa
+            </button>
+          </div>
+        )}
 
         {/* Cards de Estatísticas */}
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -446,6 +477,26 @@ export function DashboardPage(): JSX.Element {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
+                    {/* Checkbox para selecionar todos - apenas para admin */}
+                    {isAdmin && (
+                      <th className="w-12 px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={
+                            certificates.length > 0 && certificates.every((c) => isSelected(c.id))
+                          }
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              selectAll(certificates);
+                            } else {
+                              clearSelection();
+                            }
+                          }}
+                          className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                          title="Selecionar todas as certidões da página"
+                        />
+                      </th>
+                    )}
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                       Tipo
                     </th>
@@ -479,7 +530,21 @@ export function DashboardPage(): JSX.Element {
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
                   {certificates.map((cert) => (
-                    <tr key={cert.id} className="hover:bg-gray-50">
+                    <tr
+                      key={cert.id}
+                      className={`hover:bg-gray-50 ${isAdmin && isSelected(cert.id) ? 'bg-primary-50' : ''}`}
+                    >
+                      {/* Checkbox de selecao individual - apenas para admin */}
+                      {isAdmin && (
+                        <td className="w-12 px-4 py-4">
+                          <input
+                            type="checkbox"
+                            checked={isSelected(cert.id)}
+                            onChange={() => toggleSelection(cert)}
+                            className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                          />
+                        </td>
+                      )}
                       <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
                         {cert.certificateType}
                       </td>
@@ -568,4 +633,13 @@ export function DashboardPage(): JSX.Element {
       </div>
     </Layout>
   );
+}
+
+/**
+ * Página de Dashboard
+ * Exibe lista de certidões do usuário/admin
+ * Usa o contexto de selecao do App para operacoes em massa
+ */
+export function DashboardPage(): JSX.Element {
+  return <DashboardContent />;
 }

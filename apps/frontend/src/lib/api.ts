@@ -346,6 +346,91 @@ export async function updateCertificate(
   });
 }
 
+// ============ BULK UPDATE ============
+
+/**
+ * Dados de atualizacao individual por certidao
+ */
+export interface IndividualCertificateUpdate {
+  certificateId: string;
+  status?: string;
+  /** Custo em centavos (ex: R$ 10,50 = 1050) */
+  cost?: number;
+  /** Custo adicional em centavos (ex: R$ 5,25 = 525) */
+  additionalCost?: number;
+  orderNumber?: string;
+  paymentDate?: string;
+  paymentTypeId?: string | null;
+  priority?: 'normal' | 'urgent';
+}
+
+/**
+ * Dados globais aplicados a todas as certidoes
+ */
+export interface GlobalUpdateData {
+  notes?: string;
+  tagIds?: string[];
+  /** Comentario a ser adicionado em todas as certidoes */
+  comment?: string;
+}
+
+/**
+ * Requisicao de atualizacao em massa de certidoes
+ */
+export interface BulkUpdateCertificatesRequest {
+  certificateIds: string[];
+  globalData?: GlobalUpdateData;
+  individualUpdates?: IndividualCertificateUpdate[];
+  validationConfirmed?: boolean;
+  validationStatement?: string;
+}
+
+/**
+ * Informacao de certidao que falhou na atualizacao
+ */
+export interface FailedCertificateUpdate {
+  certificateId: string;
+  recordNumber: string;
+  error: string;
+}
+
+/**
+ * Informacao de certidao bloqueada para atualizacao
+ */
+export interface BlockedCertificateUpdate {
+  certificateId: string;
+  recordNumber: string;
+  reason: string;
+}
+
+/**
+ * Resposta da atualizacao em massa de certidoes
+ */
+export interface BulkUpdateCertificatesResponse {
+  successCount: number;
+  failedCount: number;
+  blockedCount: number;
+  updatedCertificates: Certificate[];
+  failedCertificates: FailedCertificateUpdate[];
+  blockedCertificates: BlockedCertificateUpdate[];
+}
+
+/**
+ * Atualiza multiplas certidoes em massa
+ */
+export async function bulkUpdateCertificates(
+  token: string,
+  data: BulkUpdateCertificatesRequest,
+): Promise<ApiResponse<BulkUpdateCertificatesResponse>> {
+  return apiClient<BulkUpdateCertificatesResponse>('/certificates/bulk-update', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+}
+
 export interface PaginatedResult<T> {
   data: T[];
   total: number;
@@ -964,5 +1049,182 @@ export async function deleteCertificateComment(
     headers: {
       Authorization: `Bearer ${token}`,
     },
+  });
+}
+
+// ============ REPORTS API ============
+
+/**
+ * Filtros disponíveis para relatórios
+ */
+export interface ReportFilters {
+  // Filtros padrão
+  certificateTypeId?: string;
+  recordNumber?: string;
+  statusId?: string;
+  tagIds?: string[];
+  paymentTypeId?: string;
+  paymentDateFrom?: string;
+  paymentDateTo?: string;
+
+  // Filtros opcionais
+  orderNumber?: string;
+  userId?: string;
+  commentSearch?: string;
+  notesSearch?: string;
+  partiesNameSearch?: string;
+}
+
+/**
+ * Quebra por status para dashboard
+ */
+export interface StatusBreakdown {
+  statusId: string;
+  statusName: string;
+  statusDisplayName: string;
+  statusColor: string;
+  count: number;
+  totalCost: number;
+}
+
+/**
+ * Quebra por tipo de certidão para dashboard
+ */
+export interface TypeBreakdown {
+  typeId: string;
+  typeName: string;
+  count: number;
+  totalCost: number;
+}
+
+/**
+ * Quebra por período (mês) para dashboard
+ */
+export interface PeriodBreakdown {
+  period: string;
+  count: number;
+  totalCost: number;
+}
+
+/**
+ * Quebra por prioridade para dashboard
+ */
+export interface PriorityBreakdown {
+  priority: 'normal' | 'urgent';
+  count: number;
+}
+
+/**
+ * Métricas agregadas do relatório
+ */
+export interface ReportMetrics {
+  totalCertificates: number;
+  totalCost: number;
+  totalAdditionalCost: number;
+  totalCombined: number;
+  byStatus: StatusBreakdown[];
+  byType: TypeBreakdown[];
+  byPeriod: PeriodBreakdown[];
+  byPriority: PriorityBreakdown[];
+}
+
+/**
+ * Dados de uma certidão para exibição no relatório
+ */
+export interface ReportCertificate {
+  id: string;
+  certificateType: string;
+  recordNumber: string;
+  partiesName: string;
+  statusId: string;
+  statusName: string;
+  statusDisplayName: string;
+  statusColor: string;
+  cost: number | null;
+  additionalCost: number | null;
+  paymentDate: string | null;
+  createdAt: string;
+}
+
+/**
+ * Resultado paginado de certidões do relatório
+ */
+export interface PaginatedReportCertificates {
+  data: ReportCertificate[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+/**
+ * Busca métricas agregadas do relatório
+ */
+export async function getReportMetrics(
+  token: string,
+  filters: ReportFilters,
+): Promise<ApiResponse<ReportMetrics>> {
+  const queryParams = new URLSearchParams();
+
+  // Adiciona filtros não-vazios
+  if (filters.certificateTypeId) queryParams.append('certificateTypeId', filters.certificateTypeId);
+  if (filters.recordNumber) queryParams.append('recordNumber', filters.recordNumber);
+  if (filters.statusId) queryParams.append('statusId', filters.statusId);
+  if (filters.tagIds && filters.tagIds.length > 0) {
+    queryParams.append('tagIds', filters.tagIds.join(','));
+  }
+  if (filters.paymentTypeId) queryParams.append('paymentTypeId', filters.paymentTypeId);
+  if (filters.paymentDateFrom) queryParams.append('paymentDateFrom', filters.paymentDateFrom);
+  if (filters.paymentDateTo) queryParams.append('paymentDateTo', filters.paymentDateTo);
+  if (filters.orderNumber) queryParams.append('orderNumber', filters.orderNumber);
+  if (filters.userId) queryParams.append('userId', filters.userId);
+  if (filters.commentSearch) queryParams.append('commentSearch', filters.commentSearch);
+  if (filters.notesSearch) queryParams.append('notesSearch', filters.notesSearch);
+  if (filters.partiesNameSearch) queryParams.append('partiesNameSearch', filters.partiesNameSearch);
+
+  const queryString = queryParams.toString();
+  const endpoint = queryString ? `/admin/reports/metrics?${queryString}` : '/admin/reports/metrics';
+
+  return apiClient<ReportMetrics>(endpoint, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+/**
+ * Busca lista paginada de certidões do relatório
+ */
+export async function getReportCertificates(
+  token: string,
+  filters: ReportFilters,
+  pagination?: { page?: number; pageSize?: number },
+): Promise<ApiResponse<PaginatedReportCertificates>> {
+  const queryParams = new URLSearchParams();
+
+  // Adiciona filtros não-vazios
+  if (filters.certificateTypeId) queryParams.append('certificateTypeId', filters.certificateTypeId);
+  if (filters.recordNumber) queryParams.append('recordNumber', filters.recordNumber);
+  if (filters.statusId) queryParams.append('statusId', filters.statusId);
+  if (filters.tagIds && filters.tagIds.length > 0) {
+    queryParams.append('tagIds', filters.tagIds.join(','));
+  }
+  if (filters.paymentTypeId) queryParams.append('paymentTypeId', filters.paymentTypeId);
+  if (filters.paymentDateFrom) queryParams.append('paymentDateFrom', filters.paymentDateFrom);
+  if (filters.paymentDateTo) queryParams.append('paymentDateTo', filters.paymentDateTo);
+  if (filters.orderNumber) queryParams.append('orderNumber', filters.orderNumber);
+  if (filters.userId) queryParams.append('userId', filters.userId);
+  if (filters.commentSearch) queryParams.append('commentSearch', filters.commentSearch);
+  if (filters.notesSearch) queryParams.append('notesSearch', filters.notesSearch);
+  if (filters.partiesNameSearch) queryParams.append('partiesNameSearch', filters.partiesNameSearch);
+
+  // Adiciona paginação
+  if (pagination?.page) queryParams.append('page', pagination.page.toString());
+  if (pagination?.pageSize) queryParams.append('pageSize', pagination.pageSize.toString());
+
+  const queryString = queryParams.toString();
+  const endpoint = queryString
+    ? `/admin/reports/certificates?${queryString}`
+    : '/admin/reports/certificates';
+
+  return apiClient<PaginatedReportCertificates>(endpoint, {
+    headers: { Authorization: `Bearer ${token}` },
   });
 }

@@ -21,6 +21,7 @@ import {
   LIST_CERTIFICATES_USECASE,
   GET_CERTIFICATE_USECASE,
   UPDATE_CERTIFICATE_USECASE,
+  BULK_UPDATE_CERTIFICATES_USECASE,
   LIST_CERTIFICATE_EVENTS_USECASE,
   CREATE_COMMENT_USECASE,
   LIST_COMMENTS_USECASE,
@@ -30,6 +31,7 @@ import type { CreateCertificateUseCase } from '../../2-application/use-cases/cre
 import type { ListCertificatesUseCase } from '../../2-application/use-cases/list-certificates.usecase';
 import type { GetCertificateUseCase } from '../../2-application/use-cases/get-certificate.usecase';
 import type { UpdateCertificateUseCase } from '../../2-application/use-cases/update-certificate.usecase';
+import type { BulkUpdateCertificatesUseCase } from '../../2-application/use-cases/bulk-update-certificates.usecase';
 import type { ListCertificateEventsUseCase } from '../../2-application/use-cases/list-certificate-events.usecase';
 import type { CreateCommentUseCase } from '../../2-application/use-cases/comments/create-comment.usecase';
 import type { ListCommentsUseCase } from '../../2-application/use-cases/comments/list-comments.usecase';
@@ -37,6 +39,7 @@ import type { DeleteCommentUseCase } from '../../2-application/use-cases/comment
 import { CreateCertificateRequestDto } from '../../2-application/dto/create-certificate-request.dto';
 import { ListCertificatesRequestDto } from '../../2-application/dto/list-certificates-request.dto';
 import { UpdateCertificateRequestDto } from '../../2-application/dto/update-certificate-request.dto';
+import { BulkUpdateCertificatesRequestDto } from '../../2-application/dto/bulk-update-certificates-request.dto';
 import { ListCertificateEventsRequestDto } from '../../2-application/dto/list-certificate-events-request.dto';
 import {
   CreateCommentRequestDto,
@@ -50,6 +53,7 @@ import { CurrentUser } from '../../../auth/3-interface-adapters/decorators/curre
 import type { AuthenticatedUser } from '../../../auth/3-interface-adapters/types/express-request.types';
 import { CreateCertificateApiDto } from '../api-dto/create-certificate.dto';
 import { UpdateCertificateAdminApiDto } from '../api-dto/update-certificate.dto';
+import { BulkUpdateCertificatesApiDto } from '../api-dto/bulk-update-certificates.dto';
 import { ListCertificatesQueryDto } from '../api-dto/list-certificates-query.dto';
 import { CreateCommentApiDto } from '../api-dto/create-comment.dto';
 import { CertificateResultToHttpHelper } from '../helpers/certificate-result-to-http.helper';
@@ -72,6 +76,8 @@ export class CertificatesController {
     private readonly getCertificateUseCase: GetCertificateUseCase,
     @Inject(UPDATE_CERTIFICATE_USECASE)
     private readonly updateCertificateUseCase: UpdateCertificateUseCase,
+    @Inject(BULK_UPDATE_CERTIFICATES_USECASE)
+    private readonly bulkUpdateCertificatesUseCase: BulkUpdateCertificatesUseCase,
     @Inject(LIST_CERTIFICATE_EVENTS_USECASE)
     private readonly listCertificateEventsUseCase: ListCertificateEventsUseCase,
     @Inject(LIST_CERTIFICATE_TYPES_USECASE)
@@ -301,6 +307,54 @@ export class CertificatesController {
     const certificate = CertificateResultToHttpHelper.handle(result);
 
     return certificate.toDTO();
+  }
+
+  /**
+   * Atualiza multiplas certidoes em massa
+   * POST /certificates/bulk-update (com prefixo global: /api/certificates/bulk-update)
+   * Apenas admins podem realizar atualizacoes em massa
+   * @param dto - Dados de atualizacao em massa
+   * @param user - Usuario autenticado
+   * @returns Resultado detalhado da operacao
+   */
+  @Post('bulk-update')
+  @HttpCode(200)
+  async bulkUpdate(
+    @Body() dto: BulkUpdateCertificatesApiDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    this.logger.info('Requisição de atualização em massa de certidões', {
+      userId: user.userId,
+      certificateCount: dto.certificateIds.length,
+    });
+
+    const request = new BulkUpdateCertificatesRequestDto(
+      user.userId,
+      user.role,
+      dto.certificateIds,
+      {
+        notes: dto.globalData?.notes,
+        tagIds: dto.globalData?.tagIds,
+        comment: dto.globalData?.comment,
+      },
+      (dto.individualUpdates ?? []).map((update) => ({
+        certificateId: update.certificateId,
+        status: update.status,
+        cost: update.cost,
+        additionalCost: update.additionalCost,
+        orderNumber: update.orderNumber,
+        paymentDate: update.paymentDate ? new Date(update.paymentDate) : undefined,
+        paymentTypeId: update.paymentTypeId,
+        priority: update.priority,
+      })),
+      {
+        confirmed: dto.validationConfirmed,
+        statement: dto.validationStatement,
+      },
+    );
+
+    const result = await this.bulkUpdateCertificatesUseCase.execute(request);
+    return CertificateResultToHttpHelper.handle(result);
   }
 
   // ============ COMENTÁRIOS ============

@@ -22,4 +22,9 @@ export enum CertificateError {
   // Erros de sistema
   DATABASE_ERROR = 'Erro ao acessar o banco de dados',
   UNEXPECTED_ERROR = 'Erro inesperado ao processar certidão',
+
+  // Erros de atualização em massa
+  BULK_UPDATE_EMPTY_LIST = 'Lista de certidões para atualização não pode estar vazia',
+  BULK_UPDATE_CERTIFICATES_BLOCKED = 'Uma ou mais certidões não podem ser editadas',
+  BULK_UPDATE_MAX_LIMIT_EXCEEDED = 'Número máximo de certidões para atualização em massa excedido',
 }

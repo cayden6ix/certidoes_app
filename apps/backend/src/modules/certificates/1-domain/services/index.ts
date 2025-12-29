@@ -19,3 +19,6 @@ export type {
   UserValidationData,
   StatusValidationResult,
 } from './certificate-status-validation.service';
+
+export { CertificateBulkValidationService } from './certificate-bulk-validation.service';
+export type { BulkValidationResult } from './certificate-bulk-validation.service';

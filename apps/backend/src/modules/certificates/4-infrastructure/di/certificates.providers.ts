@@ -9,6 +9,7 @@ import { CreateCertificateUseCase } from '../../2-application/use-cases/create-c
 import { ListCertificatesUseCase } from '../../2-application/use-cases/list-certificates.usecase';
 import { GetCertificateUseCase } from '../../2-application/use-cases/get-certificate.usecase';
 import { UpdateCertificateUseCase } from '../../2-application/use-cases/update-certificate.usecase';
+import { BulkUpdateCertificatesUseCase } from '../../2-application/use-cases/bulk-update-certificates.usecase';
 import { ListCertificateEventsUseCase } from '../../2-application/use-cases/list-certificate-events.usecase';
 import { CreateCommentUseCase } from '../../2-application/use-cases/comments/create-comment.usecase';
 import { ListCommentsUseCase } from '../../2-application/use-cases/comments/list-comments.usecase';
@@ -21,6 +22,8 @@ import { SUPABASE_CLIENT } from '../../../supabase/4-infrastructure/di/supabase.
 import type { TypedSupabaseClient } from '../../../supabase/4-infrastructure/di/supabase.providers';
 import type { CertificateTypeRepositoryContract } from '../../../admin/1-domain/contracts/certificate-type.repository.contract';
 import { CERTIFICATE_TYPE_REPOSITORY } from '../../../admin/1-domain/contracts/certificate-type.repository.contract';
+import type { CertificateTagRepositoryContract } from '../../../admin/1-domain/contracts/certificate-tag.repository.contract';
+import { CERTIFICATE_TAG_REPOSITORY } from '../../../admin/1-domain/contracts/certificate-tag.repository.contract';
 import { ListCertificateTypesUseCase } from '../../../admin/2-application/use-cases/certificate-types/list-certificate-types.usecase';
 import { SupabaseCertificateTypeRepository } from '../../../admin/4-infrastructure/repository-adapters/supabase-certificate-type.repository';
 import { LIST_CERTIFICATE_TYPES_USECASE } from '../../../admin/4-infrastructure/di/admin.tokens';
@@ -33,6 +36,7 @@ import {
   LIST_CERTIFICATES_USECASE,
   GET_CERTIFICATE_USECASE,
   UPDATE_CERTIFICATE_USECASE,
+  BULK_UPDATE_CERTIFICATES_USECASE,
   LIST_CERTIFICATE_EVENTS_USECASE,
   CREATE_COMMENT_USECASE,
   LIST_COMMENTS_USECASE,
@@ -154,6 +158,33 @@ export const certificatesProviders: Provider[] = [
       LOGGER_CONTRACT,
     ],
   },
+
+  {
+    provide: BULK_UPDATE_CERTIFICATES_USECASE,
+    useFactory: (
+      certificateRepository: CertificateRepositoryContract,
+      certificateEventRepository: CertificateEventRepositoryContract,
+      certificateTagRepository: CertificateTagRepositoryContract,
+      certificateCommentRepository: CertificateCommentRepositoryContract,
+      logger: LoggerContract,
+    ): BulkUpdateCertificatesUseCase => {
+      return new BulkUpdateCertificatesUseCase(
+        certificateRepository,
+        certificateEventRepository,
+        certificateTagRepository,
+        certificateCommentRepository,
+        logger,
+      );
+    },
+    inject: [
+      CERTIFICATE_REPOSITORY_CONTRACT,
+      CERTIFICATE_EVENT_REPOSITORY_CONTRACT,
+      CERTIFICATE_TAG_REPOSITORY,
+      CERTIFICATE_COMMENT_REPOSITORY_CONTRACT,
+      LOGGER_CONTRACT,
+    ],
+  },
+
   {
     provide: LIST_CERTIFICATE_EVENTS_USECASE,
     useFactory: (
