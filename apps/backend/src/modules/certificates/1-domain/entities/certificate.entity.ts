@@ -22,7 +22,9 @@ export interface CertificateEntityProps {
   notes: string | null;
   priority: CertificatePriorityValueObject;
   status: CertificateStatusValueObject;
+  /** Custo em centavos (ex: R$ 10,50 = 1050) */
   cost: number | null;
+  /** Custo adicional em centavos (ex: R$ 5,25 = 525) */
   additionalCost: number | null;
   orderNumber: string | null;
   paymentTypeId: string | null;
@@ -46,7 +48,9 @@ export class CertificateEntity {
   readonly notes: string | null;
   readonly priority: CertificatePriorityValueObject;
   readonly status: CertificateStatusValueObject;
+  /** Custo em centavos (ex: R$ 10,50 = 1050) */
   readonly cost: number | null;
+  /** Custo adicional em centavos (ex: R$ 5,25 = 525) */
   readonly additionalCost: number | null;
   readonly orderNumber: string | null;
   readonly paymentTypeId: string | null;
@@ -104,7 +108,8 @@ export class CertificateEntity {
   }
 
   /**
-   * Calcula o custo total (custo + custo adicional)
+   * Calcula o custo total em centavos (custo + custo adicional)
+   * @returns Custo total em centavos
    */
   getTotalCost(): number {
     return (this.cost ?? 0) + (this.additionalCost ?? 0);

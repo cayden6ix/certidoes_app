@@ -25,7 +25,9 @@ export interface Certificate {
   notes: string | null;
   priority: CertificatePriority;
   status: CertificateStatus;
+  /** Custo em centavos (ex: R$ 10,50 = 1050) */
   cost: number | null;
+  /** Custo adicional em centavos (ex: R$ 5,25 = 525) */
   additionalCost: number | null;
   orderNumber: string | null;
   paymentTypeId: string | null;
@@ -62,7 +64,9 @@ export interface UpdateCertificateClientDto {
  */
 export interface UpdateCertificateAdminDto {
   status?: CertificateStatus;
+  /** Custo em centavos (ex: R$ 10,50 = 1050) */
   cost?: number;
+  /** Custo adicional em centavos (ex: R$ 5,25 = 525) */
   additionalCost?: number;
   orderNumber?: string;
   paymentDate?: string;

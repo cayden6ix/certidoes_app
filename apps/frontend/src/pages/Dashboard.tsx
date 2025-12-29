@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 
+import { formatCentsToBRL } from '@certidoes/shared';
+
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -507,7 +509,7 @@ export function DashboardPage(): JSX.Element {
                       </td>
                       {isAdmin && (
                         <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                          {cert.cost !== null ? `R$ ${cert.cost.toFixed(2)}` : '-'}
+                          {formatCentsToBRL(cert.cost)}
                         </td>
                       )}
                       <td className="whitespace-nowrap px-6 py-4 text-sm">

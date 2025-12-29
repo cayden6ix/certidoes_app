@@ -10,7 +10,9 @@ export interface CertificateResponseDto {
   notes: string | null;
   priority: string;
   status: string;
+  /** Custo em centavos (ex: R$ 10,50 = 1050) */
   cost: number | null;
+  /** Custo adicional em centavos (ex: R$ 5,25 = 525) */
   additionalCost: number | null;
   orderNumber: string | null;
   paymentTypeId: string | null;

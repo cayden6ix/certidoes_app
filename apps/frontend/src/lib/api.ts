@@ -162,7 +162,9 @@ export interface Certificate {
   notes: string | null;
   priority: 'normal' | 'urgent';
   status: CertificateStatusInfo;
+  /** Custo em centavos (ex: R$ 10,50 = 1050) */
   cost: number | null;
+  /** Custo adicional em centavos (ex: R$ 5,25 = 525) */
   additionalCost: number | null;
   orderNumber: string | null;
   paymentTypeId: string | null;
@@ -205,7 +207,9 @@ export interface UpdateCertificateRequest {
   notes?: string;
   priority?: 'normal' | 'urgent';
   status?: string;
+  /** Custo em centavos (ex: R$ 10,50 = 1050) */
   cost?: number;
+  /** Custo adicional em centavos (ex: R$ 5,25 = 525) */
   additionalCost?: number;
   orderNumber?: string;
   paymentDate?: string;
@@ -898,5 +902,67 @@ export async function deleteCertificateStatusValidation(
   return apiClient<void>(`/admin/certificate-status-validations/${id}`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// ============ CERTIFICATE COMMENTS API ============
+
+/**
+ * Representa um comentário de certidão
+ */
+export interface CertificateComment {
+  id: string;
+  certificateId: string;
+  userId: string;
+  userRole: 'client' | 'admin';
+  userName: string;
+  content: string;
+  createdAt: string;
+}
+
+/**
+ * Lista comentários de uma certidão
+ */
+export async function listCertificateComments(
+  token: string,
+  certificateId: string,
+): Promise<ApiResponse<CertificateComment[]>> {
+  return apiClient<CertificateComment[]>(`/certificates/${certificateId}/comments`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+/**
+ * Cria um comentário em uma certidão
+ */
+export async function createCertificateComment(
+  token: string,
+  certificateId: string,
+  content: string,
+): Promise<ApiResponse<CertificateComment>> {
+  return apiClient<CertificateComment>(`/certificates/${certificateId}/comments`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ content }),
+  });
+}
+
+/**
+ * Deleta um comentário de uma certidão (apenas admins)
+ */
+export async function deleteCertificateComment(
+  token: string,
+  certificateId: string,
+  commentId: string,
+): Promise<ApiResponse<void>> {
+  return apiClient<void>(`/certificates/${certificateId}/comments/${commentId}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
   });
 }

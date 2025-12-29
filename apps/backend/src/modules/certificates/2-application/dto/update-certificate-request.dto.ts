@@ -14,7 +14,9 @@ export class UpdateCertificateRequestDto {
       notes?: string;
       priority?: 'normal' | 'urgent';
       status?: string;
+      /** Custo em centavos (ex: R$ 10,50 = 1050) */
       cost?: number;
+      /** Custo adicional em centavos (ex: R$ 5,25 = 525) */
       additionalCost?: number;
       orderNumber?: string;
       paymentDate?: Date;

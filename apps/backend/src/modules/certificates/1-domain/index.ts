@@ -3,6 +3,8 @@ export { CertificateEntity } from './entities/certificate.entity';
 export type { CertificateEntityProps } from './entities/certificate.entity';
 export { CertificateEventEntity } from './entities/certificate-event.entity';
 export type { CertificateEventEntityProps } from './entities/certificate-event.entity';
+export { CertificateCommentEntity } from './entities/certificate-comment.entity';
+export type { CertificateCommentEntityProps } from './entities/certificate-comment.entity';
 
 // Value Objects
 export { CertificateStatusValueObject } from './value-objects/certificate-status.value-object';
@@ -26,6 +28,10 @@ export type {
   CertificateStatusValidationContract,
   StatusValidationRequirement,
 } from './contracts/certificate-status-validation.contract';
+export type {
+  CertificateCommentRepositoryContract,
+  CreateCertificateCommentData,
+} from './contracts/certificate-comment.repository.contract';
 
 // Services
 export { CertificateAccessControlService } from './services/certificate-access-control.service';

@@ -342,6 +342,96 @@ COMMENT ON VIEW certificates_with_user IS 'Certidões com informações do usuá
 -- UPDATE profiles SET role = 'admin' WHERE email = 'admin@example.com';
 
 -- =====================================================
+-- 11. TABELA CERTIFICATE_COMMENTS
+-- =====================================================
+-- Armazena comentários de certidões
+-- Tanto admins quanto clientes podem comentar
+
+CREATE TABLE certificate_comments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    certificate_id UUID NOT NULL REFERENCES certificates(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    user_role VARCHAR(20) NOT NULL CHECK (user_role IN ('admin', 'client')),
+    user_name VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+-- Índices para melhorar performance
+CREATE INDEX idx_certificate_comments_certificate_id ON certificate_comments(certificate_id);
+CREATE INDEX idx_certificate_comments_created_at ON certificate_comments(created_at);
+
+-- Comentários nas colunas
+COMMENT ON TABLE certificate_comments IS 'Comentários de certidões feitos por admins e clientes';
+COMMENT ON COLUMN certificate_comments.id IS 'ID único do comentário';
+COMMENT ON COLUMN certificate_comments.certificate_id IS 'ID da certidão associada';
+COMMENT ON COLUMN certificate_comments.user_id IS 'ID do usuário que fez o comentário';
+COMMENT ON COLUMN certificate_comments.user_role IS 'Papel do usuário (admin ou client)';
+COMMENT ON COLUMN certificate_comments.user_name IS 'Nome do usuário no momento do comentário';
+COMMENT ON COLUMN certificate_comments.content IS 'Conteúdo do comentário';
+COMMENT ON COLUMN certificate_comments.created_at IS 'Data e hora de criação do comentário';
+
+-- RLS para certificate_comments
+ALTER TABLE certificate_comments ENABLE ROW LEVEL SECURITY;
+
+-- Clientes podem criar comentários em suas próprias certidões
+CREATE POLICY "Clientes podem criar comentários em suas certidões"
+    ON certificate_comments
+    FOR INSERT
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM certificates
+            WHERE certificates.id = certificate_id
+            AND certificates.user_id = auth.uid()
+        )
+    );
+
+-- Clientes podem ver comentários de suas próprias certidões
+CREATE POLICY "Clientes podem ver comentários de suas certidões"
+    ON certificate_comments
+    FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM certificates
+            WHERE certificates.id = certificate_id
+            AND certificates.user_id = auth.uid()
+        )
+    );
+
+-- Admins podem criar comentários em qualquer certidão
+CREATE POLICY "Admins podem criar comentários"
+    ON certificate_comments
+    FOR INSERT
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM profiles
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+-- Admins podem ver todos os comentários
+CREATE POLICY "Admins podem ver todos os comentários"
+    ON certificate_comments
+    FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM profiles
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+-- Admins podem deletar qualquer comentário
+CREATE POLICY "Admins podem deletar comentários"
+    ON certificate_comments
+    FOR DELETE
+    USING (
+        EXISTS (
+            SELECT 1 FROM profiles
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+-- =====================================================
 -- FIM DO SCRIPT
 -- =====================================================
 

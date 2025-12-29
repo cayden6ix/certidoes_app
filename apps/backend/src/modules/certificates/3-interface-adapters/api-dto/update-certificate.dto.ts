@@ -4,7 +4,7 @@ import {
   IsOptional,
   IsIn,
   MaxLength,
-  IsNumber,
+  IsInt,
   Min,
   IsDateString,
   IsBoolean,
@@ -51,13 +51,15 @@ export class UpdateCertificateAdminApiDto extends UpdateCertificateClientApiDto 
   @IsString()
   status?: string;
 
+  /** Custo em centavos (ex: R$ 10,50 = 1050) */
   @IsOptional()
-  @IsNumber({}, { message: 'Custo deve ser um número' })
+  @IsInt({ message: 'Custo deve ser um número inteiro (em centavos)' })
   @Min(0, { message: 'Custo não pode ser negativo' })
   cost?: number;
 
+  /** Custo adicional em centavos (ex: R$ 5,25 = 525) */
   @IsOptional()
-  @IsNumber({}, { message: 'Custo adicional deve ser um número' })
+  @IsInt({ message: 'Custo adicional deve ser um número inteiro (em centavos)' })
   @Min(0, { message: 'Custo adicional não pode ser negativo' })
   additionalCost?: number;
 

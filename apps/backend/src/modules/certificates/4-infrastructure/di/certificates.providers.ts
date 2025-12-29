@@ -4,13 +4,18 @@ import type { LoggerContract } from '../../../../shared/1-domain/contracts/logge
 import type { CertificateEventRepositoryContract } from '../../1-domain/contracts/certificate-event.repository.contract';
 import type { CertificateRepositoryContract } from '../../1-domain/contracts/certificate.repository.contract';
 import type { CertificateStatusValidationContract } from '../../1-domain/contracts/certificate-status-validation.contract';
+import type { CertificateCommentRepositoryContract } from '../../1-domain/contracts/certificate-comment.repository.contract';
 import { CreateCertificateUseCase } from '../../2-application/use-cases/create-certificate.usecase';
 import { ListCertificatesUseCase } from '../../2-application/use-cases/list-certificates.usecase';
 import { GetCertificateUseCase } from '../../2-application/use-cases/get-certificate.usecase';
 import { UpdateCertificateUseCase } from '../../2-application/use-cases/update-certificate.usecase';
 import { ListCertificateEventsUseCase } from '../../2-application/use-cases/list-certificate-events.usecase';
+import { CreateCommentUseCase } from '../../2-application/use-cases/comments/create-comment.usecase';
+import { ListCommentsUseCase } from '../../2-application/use-cases/comments/list-comments.usecase';
+import { DeleteCommentUseCase } from '../../2-application/use-cases/comments/delete-comment.usecase';
 import { SupabaseCertificateEventRepository } from '../repository-adapters/supabase-certificate-event.repository';
 import { SupabaseCertificateRepository } from '../repository-adapters/supabase-certificate.repository';
+import { SupabaseCertificateCommentRepository } from '../repository-adapters/supabase-certificate-comment.repository';
 import { CertificateStatusValidationResolver } from '../repository-adapters/services/certificate-status-validation.resolver';
 import { SUPABASE_CLIENT } from '../../../supabase/4-infrastructure/di/supabase.tokens';
 import type { TypedSupabaseClient } from '../../../supabase/4-infrastructure/di/supabase.providers';
@@ -23,11 +28,15 @@ import {
   CERTIFICATE_EVENT_REPOSITORY_CONTRACT,
   CERTIFICATE_REPOSITORY_CONTRACT,
   CERTIFICATE_STATUS_VALIDATION_CONTRACT,
+  CERTIFICATE_COMMENT_REPOSITORY_CONTRACT,
   CREATE_CERTIFICATE_USECASE,
   LIST_CERTIFICATES_USECASE,
   GET_CERTIFICATE_USECASE,
   UPDATE_CERTIFICATE_USECASE,
   LIST_CERTIFICATE_EVENTS_USECASE,
+  CREATE_COMMENT_USECASE,
+  LIST_COMMENTS_USECASE,
+  DELETE_COMMENT_USECASE,
 } from './certificates.tokens';
 
 /**
@@ -173,5 +182,61 @@ export const certificatesProviders: Provider[] = [
       return new ListCertificateTypesUseCase(repository, logger);
     },
     inject: [CERTIFICATE_TYPE_REPOSITORY, LOGGER_CONTRACT],
+  },
+
+  // ============ COMMENT REPOSITORY ============
+
+  {
+    provide: CERTIFICATE_COMMENT_REPOSITORY_CONTRACT,
+    useFactory: (
+      supabaseClient: TypedSupabaseClient,
+      logger: LoggerContract,
+    ): CertificateCommentRepositoryContract => {
+      return new SupabaseCertificateCommentRepository(supabaseClient, logger);
+    },
+    inject: [SUPABASE_CLIENT, LOGGER_CONTRACT],
+  },
+
+  // ============ COMMENT USE CASES ============
+
+  {
+    provide: CREATE_COMMENT_USECASE,
+    useFactory: (
+      certificateRepository: CertificateRepositoryContract,
+      commentRepository: CertificateCommentRepositoryContract,
+      logger: LoggerContract,
+    ): CreateCommentUseCase => {
+      return new CreateCommentUseCase(certificateRepository, commentRepository, logger);
+    },
+    inject: [
+      CERTIFICATE_REPOSITORY_CONTRACT,
+      CERTIFICATE_COMMENT_REPOSITORY_CONTRACT,
+      LOGGER_CONTRACT,
+    ],
+  },
+  {
+    provide: LIST_COMMENTS_USECASE,
+    useFactory: (
+      certificateRepository: CertificateRepositoryContract,
+      commentRepository: CertificateCommentRepositoryContract,
+      logger: LoggerContract,
+    ): ListCommentsUseCase => {
+      return new ListCommentsUseCase(certificateRepository, commentRepository, logger);
+    },
+    inject: [
+      CERTIFICATE_REPOSITORY_CONTRACT,
+      CERTIFICATE_COMMENT_REPOSITORY_CONTRACT,
+      LOGGER_CONTRACT,
+    ],
+  },
+  {
+    provide: DELETE_COMMENT_USECASE,
+    useFactory: (
+      commentRepository: CertificateCommentRepositoryContract,
+      logger: LoggerContract,
+    ): DeleteCommentUseCase => {
+      return new DeleteCommentUseCase(commentRepository, logger);
+    },
+    inject: [CERTIFICATE_COMMENT_REPOSITORY_CONTRACT, LOGGER_CONTRACT],
   },
 ];

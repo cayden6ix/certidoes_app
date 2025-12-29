@@ -59,7 +59,9 @@ export interface Database {
           observations: string | null;
           priority: CertificatePriority | null;
           status_id: string;
+          /** Custo em centavos (ex: R$ 10,50 = 1050) */
           cost: number | null;
+          /** Custo adicional em centavos (ex: R$ 5,25 = 525) */
           additional_cost: number | null;
           order_number: string | null;
           payment_type_id: string | null;
@@ -76,7 +78,9 @@ export interface Database {
           observations?: string | null;
           priority?: CertificatePriority | null;
           status_id?: string;
+          /** Custo em centavos (ex: R$ 10,50 = 1050) */
           cost?: number | null;
+          /** Custo adicional em centavos (ex: R$ 5,25 = 525) */
           additional_cost?: number | null;
           order_number?: string | null;
           payment_type_id?: string | null;
@@ -93,7 +97,9 @@ export interface Database {
           observations?: string | null;
           priority?: CertificatePriority | null;
           status_id?: string;
+          /** Custo em centavos (ex: R$ 10,50 = 1050) */
           cost?: number | null;
+          /** Custo adicional em centavos (ex: R$ 5,25 = 525) */
           additional_cost?: number | null;
           order_number?: string | null;
           payment_type_id?: string | null;
@@ -417,6 +423,51 @@ export interface Database {
             columns: ['validation_id'];
             isOneToOne: false;
             referencedRelation: 'validations';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      certificate_comments: {
+        Row: {
+          id: string;
+          certificate_id: string;
+          user_id: string;
+          user_role: UserRole;
+          user_name: string;
+          content: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          certificate_id: string;
+          user_id: string;
+          user_role: UserRole;
+          user_name: string;
+          content: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          certificate_id?: string;
+          user_id?: string;
+          user_role?: UserRole;
+          user_name?: string;
+          content?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'certificate_comments_certificate_id_fkey';
+            columns: ['certificate_id'];
+            isOneToOne: false;
+            referencedRelation: 'certificates';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'certificate_comments_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
             referencedColumns: ['id'];
           },
         ];

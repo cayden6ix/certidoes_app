@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
+import { parseInputToCents, formatCentsForInput } from '@certidoes/shared';
+
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -12,12 +14,16 @@ import {
   listPaymentTypes,
   updateCertificate,
   updateCertificateTags,
+  listCertificateComments,
+  createCertificateComment,
+  deleteCertificateComment,
   type Certificate,
   type CertificateEvent,
   type CertificateStatusConfig,
   type CertificateStatusValidationRule,
   type CertificateTag,
   type PaymentType,
+  type CertificateComment,
 } from '../lib/api';
 import { formatDate, formatDateTime } from '../lib/date-format';
 
@@ -343,6 +349,12 @@ export function CertificateDetailPage(): JSX.Element {
   const [loadingTags, setLoadingTags] = useState(false);
   const [tagsError, setTagsError] = useState<string | null>(null);
   const [isSavingTags, setIsSavingTags] = useState(false);
+  const [comments, setComments] = useState<CertificateComment[]>([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [commentsError, setCommentsError] = useState<string | null>(null);
+  const [newComment, setNewComment] = useState('');
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [isDeletingComment, setIsDeletingComment] = useState<string | null>(null);
 
   const isAdmin = user?.role === 'admin';
 
@@ -372,11 +384,8 @@ export function CertificateDetailPage(): JSX.Element {
       if (certificateResult.data) {
         setAdminForm({
           status: certificateResult.data.status.name,
-          cost: certificateResult.data.cost !== null ? certificateResult.data.cost.toString() : '',
-          additionalCost:
-            certificateResult.data.additionalCost !== null
-              ? certificateResult.data.additionalCost.toString()
-              : '',
+          cost: formatCentsForInput(certificateResult.data.cost),
+          additionalCost: formatCentsForInput(certificateResult.data.additionalCost),
           orderNumber: certificateResult.data.orderNumber ?? '',
           paymentDate: certificateResult.data.paymentDate
             ? certificateResult.data.paymentDate.slice(0, 10)
@@ -532,11 +541,47 @@ export function CertificateDetailPage(): JSX.Element {
     }
   }, [certificate?.tags]);
 
+  // Busca comentários da certidão
+  useEffect(() => {
+    if (!token || !id) return;
+
+    let active = true;
+    const fetchComments = async (): Promise<void> => {
+      setLoadingComments(true);
+      const response = await listCertificateComments(token, id);
+
+      if (!active) return;
+
+      if (response.error || !response.data) {
+        setCommentsError(response.error ?? 'Não foi possível carregar comentários.');
+        setComments([]);
+      } else {
+        setCommentsError(null);
+        setComments(response.data);
+      }
+
+      setLoadingComments(false);
+    };
+
+    void fetchComments();
+
+    return () => {
+      active = false;
+    };
+  }, [token, id]);
+
   const sortedEvents = useMemo(() => {
     return [...events].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
   }, [events]);
+
+  // Ordena comentários do mais antigo para o mais recente (fluxo de conversa)
+  const sortedComments = useMemo(() => {
+    return [...comments].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
+  }, [comments]);
 
   const certificateStatusName = certificate?.status.name ?? '';
   const selectableStatuses = useMemo(() => {
@@ -822,11 +867,8 @@ export function CertificateDetailPage(): JSX.Element {
                         adminForm.status && adminForm.status !== certificate.status.name
                           ? adminForm.status
                           : undefined,
-                      cost: adminForm.cost !== '' ? parseFloat(adminForm.cost) : undefined,
-                      additionalCost:
-                        adminForm.additionalCost !== ''
-                          ? parseFloat(adminForm.additionalCost)
-                          : undefined,
+                      cost: parseInputToCents(adminForm.cost) ?? undefined,
+                      additionalCost: parseInputToCents(adminForm.additionalCost) ?? undefined,
                       orderNumber:
                         adminForm.orderNumber.trim() !== ''
                           ? adminForm.orderNumber.trim()
@@ -855,11 +897,8 @@ export function CertificateDetailPage(): JSX.Element {
                       setAdminForm((prev) => ({
                         ...prev,
                         status: updatedData.status.name,
-                        cost: updatedData.cost !== null ? updatedData.cost.toString() : '',
-                        additionalCost:
-                          updatedData.additionalCost !== null
-                            ? updatedData.additionalCost.toString()
-                            : '',
+                        cost: formatCentsForInput(updatedData.cost),
+                        additionalCost: formatCentsForInput(updatedData.additionalCost),
                         orderNumber: updatedData.orderNumber ?? '',
                         paymentDate: updatedData.paymentDate
                           ? updatedData.paymentDate.slice(0, 10)
@@ -930,8 +969,9 @@ export function CertificateDetailPage(): JSX.Element {
                     </label>
                     <input
                       id="cost"
-                      type="number"
-                      step="0.01"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0,00"
                       value={adminForm.cost}
                       onChange={(event) => {
                         setAdminForm((prev) => ({ ...prev, cost: event.target.value }));
@@ -949,14 +989,12 @@ export function CertificateDetailPage(): JSX.Element {
                     </label>
                     <input
                       id="additionalCost"
-                      type="number"
-                      step="0.01"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0,00"
                       value={adminForm.additionalCost}
                       onChange={(event) => {
-                        setAdminForm((prev) => ({
-                          ...prev,
-                          additionalCost: event.target.value,
-                        }));
+                        setAdminForm((prev) => ({ ...prev, additionalCost: event.target.value }));
                       }}
                       className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
                       disabled={isSaving}
@@ -1361,6 +1399,142 @@ export function CertificateDetailPage(): JSX.Element {
                 })}
               </div>
             )}
+          </div>
+
+          {/* Seção de Comentários */}
+          <div className="rounded-lg bg-white p-6 shadow lg:col-span-3">
+            <h2 className="text-lg font-semibold text-gray-900">Comentários</h2>
+            {commentsError && <p className="mt-2 text-sm text-red-600">{commentsError}</p>}
+            {loadingComments ? (
+              <div className="mt-4 flex items-center">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-600 border-t-transparent"></div>
+                <span className="ml-2 text-sm text-gray-500">Carregando comentários...</span>
+              </div>
+            ) : sortedComments.length === 0 ? (
+              <p className="mt-4 text-sm text-gray-500">Nenhum comentário ainda.</p>
+            ) : (
+              <div className="mt-4 space-y-4">
+                {sortedComments.map((comment) => (
+                  <div key={comment.id} className="rounded-md border border-gray-200 p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                              comment.userRole === 'admin'
+                                ? 'bg-purple-100 text-purple-800'
+                                : 'bg-blue-100 text-blue-800'
+                            }`}
+                          >
+                            {comment.userRole === 'admin' ? 'Admin' : 'Cliente'}
+                          </span>
+                          <span className="text-sm font-medium text-gray-900">
+                            {comment.userName}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-xs text-gray-500">
+                          {formatDateTime(comment.createdAt)}
+                        </p>
+                      </div>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!token || !id) return;
+                            if (!window.confirm('Deseja realmente excluir este comentário?'))
+                              return;
+
+                            setIsDeletingComment(comment.id);
+                            const response = await deleteCertificateComment(token, id, comment.id);
+
+                            if (response.error) {
+                              setCommentsError(response.error);
+                            } else {
+                              setComments((prev) => prev.filter((c) => c.id !== comment.id));
+                              setCommentsError(null);
+                            }
+
+                            setIsDeletingComment(null);
+                          }}
+                          disabled={isDeletingComment === comment.id}
+                          className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                          title="Excluir comentário"
+                        >
+                          {isDeletingComment === comment.id ? (
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent"></div>
+                          ) : (
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              strokeWidth={1.5}
+                              stroke="currentColor"
+                              className="h-4 w-4"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"
+                              />
+                            </svg>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                    <p className="mt-2 whitespace-pre-wrap text-sm text-gray-700">
+                      {comment.content}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Formulário para adicionar comentário */}
+            <form
+              className="mt-6 border-t border-gray-200 pt-4"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                if (!token || !id || !newComment.trim()) return;
+
+                setIsSubmittingComment(true);
+                setCommentsError(null);
+
+                const response = await createCertificateComment(token, id, newComment.trim());
+
+                if (response.error) {
+                  setCommentsError(response.error);
+                } else if (response.data) {
+                  setComments((prev) => [...prev, response.data!]);
+                  setNewComment('');
+                }
+
+                setIsSubmittingComment(false);
+              }}
+            >
+              <label htmlFor="newComment" className="block text-sm font-medium text-gray-700">
+                Adicionar comentário
+              </label>
+              <textarea
+                id="newComment"
+                rows={3}
+                value={newComment}
+                onChange={(event) => setNewComment(event.target.value)}
+                placeholder="Digite seu comentário..."
+                className="mt-2 w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                disabled={isSubmittingComment}
+                maxLength={2000}
+              />
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-xs text-gray-500">{newComment.length}/2000 caracteres</span>
+                <button
+                  type="submit"
+                  disabled={isSubmittingComment || !newComment.trim()}
+                  className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isSubmittingComment ? 'Enviando...' : 'Enviar'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </div>

@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Patch,
+  Delete,
   Param,
   Body,
   Query,
@@ -21,16 +22,27 @@ import {
   GET_CERTIFICATE_USECASE,
   UPDATE_CERTIFICATE_USECASE,
   LIST_CERTIFICATE_EVENTS_USECASE,
+  CREATE_COMMENT_USECASE,
+  LIST_COMMENTS_USECASE,
+  DELETE_COMMENT_USECASE,
 } from '../../4-infrastructure/di/certificates.tokens';
 import type { CreateCertificateUseCase } from '../../2-application/use-cases/create-certificate.usecase';
 import type { ListCertificatesUseCase } from '../../2-application/use-cases/list-certificates.usecase';
 import type { GetCertificateUseCase } from '../../2-application/use-cases/get-certificate.usecase';
 import type { UpdateCertificateUseCase } from '../../2-application/use-cases/update-certificate.usecase';
 import type { ListCertificateEventsUseCase } from '../../2-application/use-cases/list-certificate-events.usecase';
+import type { CreateCommentUseCase } from '../../2-application/use-cases/comments/create-comment.usecase';
+import type { ListCommentsUseCase } from '../../2-application/use-cases/comments/list-comments.usecase';
+import type { DeleteCommentUseCase } from '../../2-application/use-cases/comments/delete-comment.usecase';
 import { CreateCertificateRequestDto } from '../../2-application/dto/create-certificate-request.dto';
 import { ListCertificatesRequestDto } from '../../2-application/dto/list-certificates-request.dto';
 import { UpdateCertificateRequestDto } from '../../2-application/dto/update-certificate-request.dto';
 import { ListCertificateEventsRequestDto } from '../../2-application/dto/list-certificate-events-request.dto';
+import {
+  CreateCommentRequestDto,
+  ListCommentsRequestDto,
+  DeleteCommentRequestDto,
+} from '../../2-application/dto/comment-request.dto';
 import type { ListCertificateTypesUseCase } from '../../../admin/2-application/use-cases/certificate-types/list-certificate-types.usecase';
 import { LIST_CERTIFICATE_TYPES_USECASE } from '../../../admin/4-infrastructure/di/admin.tokens';
 import { JwtAuthGuard } from '../../../auth/3-interface-adapters/guards/jwt-auth.guard';
@@ -39,6 +51,7 @@ import type { AuthenticatedUser } from '../../../auth/3-interface-adapters/types
 import { CreateCertificateApiDto } from '../api-dto/create-certificate.dto';
 import { UpdateCertificateAdminApiDto } from '../api-dto/update-certificate.dto';
 import { ListCertificatesQueryDto } from '../api-dto/list-certificates-query.dto';
+import { CreateCommentApiDto } from '../api-dto/create-comment.dto';
 import { CertificateResultToHttpHelper } from '../helpers/certificate-result-to-http.helper';
 import { ListCertificateTypesQueryDto } from '../../../admin/3-interface-adapters/api-dto/certificate-types.dto';
 
@@ -63,6 +76,12 @@ export class CertificatesController {
     private readonly listCertificateEventsUseCase: ListCertificateEventsUseCase,
     @Inject(LIST_CERTIFICATE_TYPES_USECASE)
     private readonly listCertificateTypesUseCase: ListCertificateTypesUseCase,
+    @Inject(CREATE_COMMENT_USECASE)
+    private readonly createCommentUseCase: CreateCommentUseCase,
+    @Inject(LIST_COMMENTS_USECASE)
+    private readonly listCommentsUseCase: ListCommentsUseCase,
+    @Inject(DELETE_COMMENT_USECASE)
+    private readonly deleteCommentUseCase: DeleteCommentUseCase,
     @Inject(LOGGER_CONTRACT)
     private readonly logger: LoggerContract,
   ) {}
@@ -282,5 +301,99 @@ export class CertificatesController {
     const certificate = CertificateResultToHttpHelper.handle(result);
 
     return certificate.toDTO();
+  }
+
+  // ============ COMENTÁRIOS ============
+
+  /**
+   * Lista comentários de uma certidão
+   * GET /certificates/:id/comments
+   * Cliente: apenas se for dono
+   * Admin: qualquer certidão
+   * @param id - ID da certidão (UUID)
+   * @param user - Usuário autenticado
+   * @returns Lista de comentários ordenados cronologicamente
+   */
+  @Get(':id/comments')
+  @HttpCode(200)
+  async listComments(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    this.logger.debug('Requisição de listagem de comentários', {
+      certificateId: id,
+      userId: user.userId,
+      userRole: user.role,
+    });
+
+    const request = new ListCommentsRequestDto(id, user.userId, user.role);
+    const result = await this.listCommentsUseCase.execute(request);
+    const comments = CertificateResultToHttpHelper.handle(result);
+
+    return comments.map((comment) => comment.toDTO());
+  }
+
+  /**
+   * Cria um comentário em uma certidão
+   * POST /certificates/:id/comments
+   * Cliente: apenas em suas certidões
+   * Admin: qualquer certidão
+   * @param id - ID da certidão (UUID)
+   * @param dto - Dados do comentário
+   * @param user - Usuário autenticado
+   * @returns Comentário criado
+   */
+  @Post(':id/comments')
+  @HttpCode(201)
+  async createComment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateCommentApiDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    this.logger.debug('Requisição de criação de comentário', {
+      certificateId: id,
+      userId: user.userId,
+      userRole: user.role,
+    });
+
+    const request = new CreateCommentRequestDto(
+      id,
+      user.userId,
+      user.role,
+      user.email,
+      dto.content,
+    );
+
+    const result = await this.createCommentUseCase.execute(request);
+    const comment = CertificateResultToHttpHelper.handle(result);
+
+    return comment.toDTO();
+  }
+
+  /**
+   * Deleta um comentário de uma certidão
+   * DELETE /certificates/:id/comments/:commentId
+   * Apenas admins podem deletar comentários (moderação)
+   * @param id - ID da certidão (UUID)
+   * @param commentId - ID do comentário (UUID)
+   * @param user - Usuário autenticado
+   */
+  @Delete(':id/comments/:commentId')
+  @HttpCode(204)
+  async deleteComment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('commentId', ParseUUIDPipe) commentId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    this.logger.debug('Requisição de deleção de comentário', {
+      certificateId: id,
+      commentId,
+      userId: user.userId,
+      userRole: user.role,
+    });
+
+    const request = new DeleteCommentRequestDto(commentId, id, user.userId, user.role);
+    const result = await this.deleteCommentUseCase.execute(request);
+    CertificateResultToHttpHelper.handle(result);
   }
 }

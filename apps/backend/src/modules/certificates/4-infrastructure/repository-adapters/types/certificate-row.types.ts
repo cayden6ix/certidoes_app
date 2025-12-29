@@ -20,7 +20,9 @@ export interface CertificateRow {
   observations?: string | null;
   priority?: 'normal' | 'urgent' | CertificatePriority | null;
   status_id: string;
+  /** Custo em centavos (ex: R$ 10,50 = 1050) */
   cost?: number | null;
+  /** Custo adicional em centavos (ex: R$ 5,25 = 525) */
   additional_cost?: number | null;
   order_number?: string | null;
   payment_type_id?: string | null;
