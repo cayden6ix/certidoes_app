@@ -366,7 +366,7 @@ export class BulkUpdateCertificatesUseCase {
         eventType: 'comment_added',
         changes: {
           bulkOperation: true,
-          commentId: commentResult.data.id,
+          content: comment,
         },
       });
     }

@@ -74,6 +74,8 @@ function formatEventLabel(eventType: string): string {
       return 'Certidão atualizada';
     case 'tags_updated':
       return 'Tags atualizadas';
+    case 'comment_added':
+      return 'Comentário adicionado';
     default:
       return eventType;
   }
@@ -270,6 +272,18 @@ function formatChanges(
       continue;
     }
     if (value === undefined || value === null || value === '') continue;
+
+    // Tratamento especial para conteúdo de comentário
+    if (field === 'content' && typeof value === 'string') {
+      result.push(value);
+      continue;
+    }
+
+    // Ignora commentId em eventos de comentário (não faz sentido mostrar UUID)
+    if (field === 'commentId') {
+      continue;
+    }
+
     result.push(`${formatFieldLabel(field)}: ${formatValue(value)}`);
   }
 
